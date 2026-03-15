@@ -419,6 +419,8 @@ const startBtn = document.getElementById('start-btn');
 
 function startGame() {
   if (warning.classList.contains('hidden')) return; // prevent double-fire
+
+  try {
   warning.classList.add('hidden');
   audioEngine.init();
   screenEffects.init();
@@ -507,6 +509,14 @@ function startGame() {
   gameState.setPhase('menu');
   startMenuMusic();
   loop.start();
+
+  } catch (err) {
+    console.error('startGame failed:', err);
+    // Show error on screen so we can debug on mobile
+    warning.classList.remove('hidden');
+    warning.querySelector('.warning-content').innerHTML =
+      `<h1 style="color:red;font-size:1rem;">ERROR</h1><p style="font-size:0.8rem;">${err.message}</p>`;
+  }
 }
 
 startBtn.addEventListener('click', startGame);
