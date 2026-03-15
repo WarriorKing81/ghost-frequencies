@@ -417,7 +417,8 @@ const loop = new GameLoop(update, render);
 const warning = document.getElementById('headphone-warning');
 const startBtn = document.getElementById('start-btn');
 
-startBtn.addEventListener('click', () => {
+function startGame() {
+  if (warning.classList.contains('hidden')) return; // prevent double-fire
   warning.classList.add('hidden');
   audioEngine.init();
   screenEffects.init();
@@ -506,6 +507,12 @@ startBtn.addEventListener('click', () => {
   gameState.setPhase('menu');
   startMenuMusic();
   loop.start();
+}
+
+startBtn.addEventListener('click', startGame);
+startBtn.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  startGame();
 });
 
 export { audioEngine, soundBank, renderer, radioTuner, ghostCollection, lightSensor };
