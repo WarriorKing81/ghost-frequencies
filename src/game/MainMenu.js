@@ -784,7 +784,6 @@ export class MainMenu {
         x: cx - 160, y: y - 18, w: 320, h: 36,
         action: { type: 'settingsToggle', index: i },
       });
-      const y = startY + i * spacing;
       const isSelected = i === this.settingsIndex;
 
       ctx.fillStyle = isSelected ? '#00ff41' : 'rgba(0, 255, 65, 0.4)';
