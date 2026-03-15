@@ -220,13 +220,19 @@ export class QuestionSystem {
     this.answerLocked = false;
     this.answerHoldTimer = 0;
 
-    this.radioTuner.setStation({
-      targetFrequency: match.answerFrequency,
-      bandwidth: match.bandwidth || 3.0,
-      voiceType: this.ghostVoiceType,
-      voiceTone: this.ghostVoiceTone,
-      audioBuffer: this.ghostAudioBuffer || null,
-    });
+    // Check if this specific question has its own voice recording
+    if (match.voiceFile) {
+      this._loadAndSetStation(match);
+    } else {
+      // Use ghost-level voice config
+      this.radioTuner.setStation({
+        targetFrequency: match.answerFrequency,
+        bandwidth: match.bandwidth || 3.0,
+        voiceType: this.ghostVoiceType,
+        voiceTone: this.ghostVoiceTone,
+        audioBuffer: this.ghostAudioBuffer || null,
+      });
+    }
 
     eventBus.emit('question:asked', { question: match });
 
@@ -272,6 +278,44 @@ export class QuestionSystem {
 
     // Require at least 1 keyword hit
     return bestScore >= 1 ? bestQuestion : null;
+  }
+
+  // ── PER-QUESTION VOICE LOADING ───────────────────────────────
+
+  /** Load a question-specific voice file and set the station once ready */
+  async _loadAndSetStation(match) {
+    // Check cache first
+    if (!this._voiceCache) this._voiceCache = {};
+
+    let buffer = this._voiceCache[match.voiceFile];
+    if (!buffer) {
+      try {
+        const ctx = this.radioTuner.ctx;
+        const response = await fetch(match.voiceFile);
+        const arrayBuffer = await response.arrayBuffer();
+        buffer = await ctx.decodeAudioData(arrayBuffer);
+        this._voiceCache[match.voiceFile] = buffer;
+      } catch (err) {
+        console.warn('Failed to load question voice:', match.voiceFile, err);
+        // Fallback to ghost-level voice
+        this.radioTuner.setStation({
+          targetFrequency: match.answerFrequency,
+          bandwidth: match.bandwidth || 3.0,
+          voiceType: this.ghostVoiceType,
+          voiceTone: this.ghostVoiceTone,
+          audioBuffer: this.ghostAudioBuffer || null,
+        });
+        return;
+      }
+    }
+
+    this.radioTuner.setStation({
+      targetFrequency: match.answerFrequency,
+      bandwidth: match.bandwidth || 3.0,
+      voiceType: 'recorded',
+      voiceTone: this.ghostVoiceTone,
+      audioBuffer: buffer,
+    });
   }
 
   // ── QUESTION LOADING ──────────────────────────────────────────

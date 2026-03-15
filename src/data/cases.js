@@ -45,6 +45,7 @@ export const CASES = [
         answerFrequency: 91.7,
         bandwidth: 3.5,
         tolerance: 0.35,
+        voiceFile: '/assets/audio/ghosts/harold-echo.mp3',
         keywords: ['who', 'kill', 'killed', 'murder', 'murdered', 'hurt', 'did this', 'attacker', 'responsible'],
       },
       {
@@ -55,6 +56,7 @@ export const CASES = [
         answerFrequency: 96.3,
         bandwidth: 3.0,
         tolerance: 0.3,
+        voiceFile: '/assets/audio/ghosts/empty-ashtray.mp3',
         keywords: ['weapon', 'struck', 'hit', 'ashtray', 'object', 'what was used', 'instrument', 'crystal', 'blunt'],
       },
       {

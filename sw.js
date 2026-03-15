@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ghost-frequency-v10';
+const CACHE_NAME = 'ghost-frequency-v11';
 const ASSETS = [
   '/',
   '/index.html',
@@ -38,6 +38,7 @@ const ASSETS = [
   '/assets/audio/menu-music.mp3',
   '/assets/audio/casefile-ambient.mp3',
   '/assets/audio/ghosts/harold-echo.mp3',
+  '/assets/audio/ghosts/empty-ashtray.mp3',
 ];
 
 // Install — cache all app shell assets, skip waiting to activate immediately
