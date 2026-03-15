@@ -71,12 +71,10 @@ export class CaseFile {
       this._touchScrollStart = this.scrollY;
       this._scrollVelocity = 0;
 
-      // Check close button hit
+      // Check button hits (CSS pixel space — matches draw coordinates)
       const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-      const px = (touch.clientX - rect.left) * scaleX;
-      const py = (touch.clientY - rect.top) * scaleY;
+      const px = touch.clientX - rect.left;
+      const py = touch.clientY - rect.top;
       if (this.hitTestCloseButton(px, py)) {
         this._pendingClose = true;
       }
@@ -94,9 +92,9 @@ export class CaseFile {
       const touch = e.touches[0];
       const dy = this._lastTouchY - touch.clientY;
       this._lastTouchY = touch.clientY;
-      const scale = canvas.height / canvas.getBoundingClientRect().height;
-      this._scrollVelocity = dy * scale * 15; // amplify for inertia
-      this.scrollY = Math.max(0, Math.min(this.maxScrollY, this.scrollY + dy * scale));
+      // Scroll in CSS pixels (matches draw coordinate space)
+      this._scrollVelocity = dy * 15; // amplify for inertia
+      this.scrollY = Math.max(0, Math.min(this.maxScrollY, this.scrollY + dy));
       // Cancel button taps if user is scrolling
       if (Math.abs(this._touchStartY - touch.clientY) > 10) {
         this._pendingClose = false;

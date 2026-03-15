@@ -158,12 +158,11 @@ export class MainMenu {
         clientY = e.clientY;
       }
 
-      // Convert CSS click position to canvas coordinates
+      // Convert to CSS pixel coordinates (hit regions are in CSS space
+      // because the Renderer passes window.innerWidth/Height as w/h)
       const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-      const x = (clientX - rect.left) * scaleX;
-      const y = (clientY - rect.top) * scaleY;
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
 
       for (const region of this.hitRegions) {
         if (x >= region.x && x <= region.x + region.w &&

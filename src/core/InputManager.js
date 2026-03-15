@@ -53,12 +53,15 @@ export class InputManager {
       this.dialDelta += e.deltaY * -0.005;
     }, { passive: false });
 
-    // Touch drag
+    // Touch drag (for radio tuning — only active during gameplay)
+    this.enabled = false; // set to true when gameplay starts
     canvas.addEventListener('touchstart', (e) => {
+      if (!this.enabled) return;
       e.preventDefault();
       this.touchStartX = e.touches[0].clientX;
     }, { passive: false });
     canvas.addEventListener('touchmove', (e) => {
+      if (!this.enabled) return;
       e.preventDefault();
       if (this.touchStartX !== null) {
         const x = e.touches[0].clientX;

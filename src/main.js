@@ -51,9 +51,25 @@ let levelManager = null;
 // Light penalty
 let lightPenalty = 0;
 
+// Mobile controls
+const mobileControls = document.getElementById('mobile-controls');
+const btnCasefile = document.getElementById('btn-casefile');
+const btnAsk = document.getElementById('btn-ask');
+const btnMic = document.getElementById('btn-mic');
+const btnMenu = document.getElementById('btn-menu');
+
 // ── UPDATE ──────────────────────────────────────────────────────────
 function update(dt) {
   if (!inputManager) return;
+
+  // Show/hide mobile controls based on game phase
+  if (mobileControls) {
+    const showControls = gameState.phase === 'playing' && !caseFile.isOpen;
+    mobileControls.classList.toggle('visible', showControls);
+  }
+
+  // Enable touch-drag input only during gameplay
+  inputManager.enabled = (gameState.phase === 'playing' && !caseFile.isOpen);
 
   // Main menu phase
   if (gameState.phase === 'menu') {
@@ -615,11 +631,10 @@ function startGame() {
   // Touch/click handler for case file buttons
   canvas.addEventListener('click', (e) => {
     if (gameState.phase !== 'casefile') return;
+    // CSS pixel coordinates (match draw space — Renderer uses ctx.scale(dpr))
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const px = (e.clientX - rect.left) * scaleX;
-    const py = (e.clientY - rect.top) * scaleY;
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
     if (caseFile.hitTestMenuButton(px, py)) {
       returnToMenu();
     } else if (caseFile.hitTestCloseButton(px, py) || caseFile.hitTestInvestigateButton(px, py)) {
@@ -651,6 +666,58 @@ function startGame() {
     // Small delay so the flag is set before we check
     requestAnimationFrame(processCasefileTouchActions);
   });
+
+  // ── MOBILE CONTROLS ─────────────────────────────────────────
+  if (btnCasefile) {
+    btnCasefile.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (gameState.phase !== 'playing') return;
+      caseFile.toggle();
+      if (caseFile.isOpen) {
+        startCasefileAmbient();
+        const ctx = audioEngine.getContext();
+        radioTuner.noiseGain.gain.setTargetAtTime(0.08, ctx.currentTime, 0.3);
+        gameState.setPhase('casefile');
+      }
+    });
+  }
+
+  if (btnAsk) {
+    btnAsk.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (gameState.phase !== 'playing' || caseFile.isOpen) return;
+      questionSystem.toggleInput();
+    });
+  }
+
+  if (btnMic) {
+    btnMic.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (gameState.phase !== 'playing' || caseFile.isOpen) return;
+      questionSystem.startVoice();
+      btnMic.classList.add('listening');
+      // Remove listening class when done
+      setTimeout(() => btnMic.classList.remove('listening'), 5000);
+    });
+
+    // Also update listening state from QuestionSystem
+    const origStopVoice = questionSystem._stopVoice.bind(questionSystem);
+    questionSystem._stopVoice = function() {
+      origStopVoice();
+      btnMic.classList.remove('listening');
+    };
+  }
+
+  if (btnMenu) {
+    btnMenu.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      returnToMenu();
+    });
+  }
 
   // Show main menu with background music
   gameState.setPhase('menu');

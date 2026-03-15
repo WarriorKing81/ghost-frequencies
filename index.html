@@ -25,6 +25,26 @@
   <input type="text" id="question-input"
          placeholder="Ask the spirit..."
          autocomplete="off" autocorrect="off" spellcheck="false" />
+
+  <!-- Mobile gameplay controls — shown during playing phase -->
+  <div id="mobile-controls">
+    <button id="btn-casefile" class="mobile-btn" aria-label="Case File">
+      <span class="btn-icon">📋</span>
+      <span class="btn-label">FILE</span>
+    </button>
+    <button id="btn-ask" class="mobile-btn" aria-label="Type Question">
+      <span class="btn-icon">💬</span>
+      <span class="btn-label">ASK</span>
+    </button>
+    <button id="btn-mic" class="mobile-btn mic-btn" aria-label="Speak to Spirit">
+      <span class="btn-icon">🎙️</span>
+      <span class="btn-label">SPEAK</span>
+    </button>
+    <button id="btn-menu" class="mobile-btn" aria-label="Main Menu">
+      <span class="btn-icon">☰</span>
+      <span class="btn-label">MENU</span>
+    </button>
+  </div>
   <script type="module" src="src/main.js"></script>
   <script>
     if ('serviceWorker' in navigator) {

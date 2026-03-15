@@ -139,3 +139,75 @@ html, body {
   0%, 100% { border-color: rgba(255, 100, 100, 0.4); }
   50% { border-color: rgba(255, 100, 100, 0.9); }
 }
+
+/* ── MOBILE GAMEPLAY CONTROLS ────────────────────────────────── */
+#mobile-controls {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  gap: 10px;
+  z-index: 45;
+  pointer-events: auto;
+}
+
+#mobile-controls.visible {
+  display: flex;
+}
+
+.mobile-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(0, 255, 65, 0.35);
+  color: rgba(0, 255, 65, 0.8);
+  font-family: 'Courier New', monospace;
+  padding: 10px 14px;
+  min-width: 60px;
+  min-height: 54px;
+  cursor: pointer;
+  border-radius: 6px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.mobile-btn:active {
+  background: rgba(0, 255, 65, 0.15);
+  border-color: rgba(0, 255, 65, 0.7);
+  box-shadow: 0 0 12px rgba(0, 255, 65, 0.3);
+}
+
+.mobile-btn .btn-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.mobile-btn .btn-label {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  margin-top: 3px;
+  opacity: 0.7;
+}
+
+/* Mic button — slightly different accent when listening */
+.mobile-btn.mic-btn.listening {
+  border-color: rgba(255, 80, 80, 0.7);
+  background: rgba(255, 30, 30, 0.15);
+  animation: mic-pulse 1.2s infinite;
+}
+
+@keyframes mic-pulse {
+  0%, 100% { box-shadow: 0 0 5px rgba(255, 60, 60, 0.2); }
+  50% { box-shadow: 0 0 18px rgba(255, 60, 60, 0.5); }
+}
+
+/* Move question input up to avoid overlapping mobile controls */
+@media (max-width: 600px) {
+  #question-input {
+    bottom: 100px;
+  }
+}
