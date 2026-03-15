@@ -96,7 +96,7 @@ function update(dt) {
       stopCasefileAmbient();
       // Restore radio static to gameplay level
       const ctx = audioEngine.getContext();
-      radioTuner.noiseGain.gain.setTargetAtTime(0.5, ctx.currentTime, 0.3);
+      radioTuner.noiseGain.gain.setTargetAtTime(0.3, ctx.currentTime, 0.3);
       gameState.setPhase('playing');
     }
     return;
@@ -158,7 +158,7 @@ function handleMenuAction(action) {
 
   // Restore radio static + atmosphere drones for gameplay
   const ctx = audioEngine.getContext();
-  radioTuner.noiseGain.gain.setTargetAtTime(0.5, ctx.currentTime, 0.3);
+  radioTuner.noiseGain.gain.setTargetAtTime(0.3, ctx.currentTime, 0.3);
   atmosphere.droneGain.gain.setTargetAtTime(0.12, ctx.currentTime, 0.5);
   atmosphere.subGain.gain.setTargetAtTime(0.08, ctx.currentTime, 0.5);
 
@@ -193,7 +193,7 @@ function handleMenuInput() {
       stopCasefileAmbient();
       // Restore radio static to gameplay level
       const ctx = audioEngine.getContext();
-      radioTuner.noiseGain.gain.setTargetAtTime(0.5, ctx.currentTime, 0.3);
+      radioTuner.noiseGain.gain.setTargetAtTime(0.3, ctx.currentTime, 0.3);
     } else if (gameState.phase === 'playing') {
       if (questionSystem.inputOpen) {
         questionSystem.closeInput();
@@ -203,12 +203,12 @@ function handleMenuInput() {
           startCasefileAmbient();
           // Turn static down to ~50% while case file is open
           const ctx = audioEngine.getContext();
-          radioTuner.noiseGain.gain.setTargetAtTime(0.08, ctx.currentTime, 0.3);
+          radioTuner.noiseGain.gain.setTargetAtTime(0.1, ctx.currentTime, 0.3);
         } else {
           stopCasefileAmbient();
           // Restore radio static
           const ctx = audioEngine.getContext();
-          radioTuner.noiseGain.gain.setTargetAtTime(0.5, ctx.currentTime, 0.3);
+          radioTuner.noiseGain.gain.setTargetAtTime(0.3, ctx.currentTime, 0.3);
         }
       }
     }
@@ -466,7 +466,7 @@ function returnToMenu() {
     const ctx = audioEngine.getContext();
     atmosphere.droneGain.gain.setTargetAtTime(0, ctx.currentTime, 0.3);
     atmosphere.subGain.gain.setTargetAtTime(0, ctx.currentTime, 0.3);
-    radioTuner.noiseGain.gain.setTargetAtTime(0.04, ctx.currentTime, 0.3);
+    radioTuner.noiseGain.gain.setTargetAtTime(0.1, ctx.currentTime, 0.3);
   }
 
   // Close case file if open
@@ -547,7 +547,7 @@ function startGame() {
   radioTuner.init();
 
   // Quiet radio static on main menu — subtle background texture, not overpowering
-  radioTuner.noiseGain.gain.value = 0.04;
+  radioTuner.noiseGain.gain.value = 0.1;
 
   atmosphere = new Atmosphere(audioEngine);
   atmosphere.init();
@@ -610,7 +610,7 @@ function startGame() {
     // Case file auto-opens when a level loads — play ambient audio, quiet the static
     startCasefileAmbient();
     const ctx = audioEngine.getContext();
-    radioTuner.noiseGain.gain.setTargetAtTime(0.08, ctx.currentTime, 0.3);
+    radioTuner.noiseGain.gain.setTargetAtTime(0.1, ctx.currentTime, 0.3);
   });
 
   levelManager = new LevelManager(
@@ -641,7 +641,7 @@ function startGame() {
       caseFile.close();
       stopCasefileAmbient();
       const ctx = audioEngine.getContext();
-      radioTuner.noiseGain.gain.setTargetAtTime(0.5, ctx.currentTime, 0.3);
+      radioTuner.noiseGain.gain.setTargetAtTime(0.3, ctx.currentTime, 0.3);
     }
   });
 
@@ -654,7 +654,7 @@ function startGame() {
       caseFile.close();
       stopCasefileAmbient();
       const ctx = audioEngine.getContext();
-      radioTuner.noiseGain.gain.setTargetAtTime(0.5, ctx.currentTime, 0.3);
+      radioTuner.noiseGain.gain.setTargetAtTime(0.3, ctx.currentTime, 0.3);
     }
     if (caseFile._pendingMenu) {
       caseFile._pendingMenu = false;
@@ -677,7 +677,7 @@ function startGame() {
       if (caseFile.isOpen) {
         startCasefileAmbient();
         const ctx = audioEngine.getContext();
-        radioTuner.noiseGain.gain.setTargetAtTime(0.08, ctx.currentTime, 0.3);
+        radioTuner.noiseGain.gain.setTargetAtTime(0.1, ctx.currentTime, 0.3);
         gameState.setPhase('casefile');
       }
     });
