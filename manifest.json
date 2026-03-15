@@ -1,0 +1,22 @@
+{
+  "name": "Ghost Frequency",
+  "short_name": "GhostFreq",
+  "description": "Paranormal Investigation Unit. Capture ghosts by tuning into their frequencies.",
+  "start_url": "/index.html",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    {
+      "src": "/assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "related_applications": [],
+  "prefer_related_applications": false
+}

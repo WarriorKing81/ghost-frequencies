@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="theme-color" content="#000000">
+  <title>Ghost Frequency</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/icon.svg">
+</head>
+<body>
+  <div id="headphone-warning">
+    <div class="warning-content">
+      <h1>GHOST FREQUENCY</h1>
+      <p>This experience requires headphones.</p>
+      <p class="sub">Put them on before continuing.</p>
+      <button id="start-btn">I'm wearing headphones</button>
+    </div>
+  </div>
+  <canvas id="game-canvas"></canvas>
+  <input type="text" id="question-input"
+         placeholder="Ask the spirit..."
+         autocomplete="off" autocorrect="off" spellcheck="false" />
+  <script type="module" src="src/main.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+  </script>
+</body>
+</html>

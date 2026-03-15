@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#000"/>
+  <circle cx="256" cy="200" r="80" fill="none" stroke="#00ff41" stroke-width="4" opacity="0.6"/>
+  <ellipse cx="230" cy="185" rx="12" ry="8" fill="#00ff41" opacity="0.9"/>
+  <ellipse cx="282" cy="185" rx="12" ry="8" fill="#00ff41" opacity="0.9"/>
+  <path d="M236 220 Q256 240 276 220" fill="none" stroke="#00ff41" stroke-width="3" opacity="0.5"/>
+  <path d="M200 280 Q256 360 312 280" fill="none" stroke="#00ff41" stroke-width="3" opacity="0.3"/>
+  <path d="M180 300 Q256 400 332 300" fill="none" stroke="#00ff41" stroke-width="2" opacity="0.2"/>
+  <!-- Waveform line -->
+  <path d="M40 420 Q128 380 170 420 Q210 460 256 420 Q300 380 340 420 Q380 460 472 420" fill="none" stroke="#00ff41" stroke-width="4" opacity="0.8"/>
+  <text x="256" y="490" text-anchor="middle" font-family="monospace" font-size="36" fill="#00ff41" opacity="0.7">GF</text>
+</svg>
