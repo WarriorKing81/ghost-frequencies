@@ -77,6 +77,10 @@ function update(dt) {
     caseFile.update(dt);
     if (atmosphere) atmosphere.update(dt);
     if (!caseFile.isOpen) {
+      stopCasefileAmbient();
+      // Restore radio static to gameplay level
+      const ctx = audioEngine.getContext();
+      radioTuner.noiseGain.gain.setTargetAtTime(0.5, ctx.currentTime, 0.3);
       gameState.setPhase('playing');
     }
     return;
@@ -170,11 +174,26 @@ function handleMenuInput() {
   if (inputManager.wasJustPressed('Tab')) {
     if (gameState.phase === 'casefile') {
       caseFile.close();
+      stopCasefileAmbient();
+      // Restore radio static to gameplay level
+      const ctx = audioEngine.getContext();
+      radioTuner.noiseGain.gain.setTargetAtTime(0.5, ctx.currentTime, 0.3);
     } else if (gameState.phase === 'playing') {
       if (questionSystem.inputOpen) {
         questionSystem.closeInput();
       } else {
         caseFile.toggle();
+        if (caseFile.isOpen) {
+          startCasefileAmbient();
+          // Turn static down to ~50% while case file is open
+          const ctx = audioEngine.getContext();
+          radioTuner.noiseGain.gain.setTargetAtTime(0.08, ctx.currentTime, 0.3);
+        } else {
+          stopCasefileAmbient();
+          // Restore radio static
+          const ctx = audioEngine.getContext();
+          radioTuner.noiseGain.gain.setTargetAtTime(0.5, ctx.currentTime, 0.3);
+        }
       }
     }
   }
@@ -373,9 +392,60 @@ function render(alpha) {
   ]);
 }
 
+// ── CASE FILE AMBIENT AUDIO ─────────────────────────────────────────
+let casefileAmbientSource = null;
+let casefileAmbientGain = null;
+let casefileAmbientBuffer = null; // cache decoded buffer
+
+function startCasefileAmbient() {
+  if (casefileAmbientSource) return;
+  const ctx = audioEngine.getContext();
+  const musicBus = audioEngine.getBus('music');
+
+  const playBuffer = (decoded) => {
+    if (gameState.phase !== 'casefile') return;
+
+    casefileAmbientGain = ctx.createGain();
+    casefileAmbientGain.gain.value = 0;
+    casefileAmbientGain.gain.setTargetAtTime(0.35, ctx.currentTime, 0.6);
+    casefileAmbientGain.connect(musicBus);
+
+    casefileAmbientSource = ctx.createBufferSource();
+    casefileAmbientSource.buffer = decoded;
+    casefileAmbientSource.loop = true;
+    casefileAmbientSource.connect(casefileAmbientGain);
+    casefileAmbientSource.start();
+  };
+
+  if (casefileAmbientBuffer) {
+    playBuffer(casefileAmbientBuffer);
+  } else {
+    fetch('/assets/audio/casefile-ambient.mp3')
+      .then(r => r.arrayBuffer())
+      .then(buf => ctx.decodeAudioData(buf))
+      .then(decoded => {
+        casefileAmbientBuffer = decoded;
+        playBuffer(decoded);
+      })
+      .catch(err => console.warn('Casefile ambient failed to load:', err));
+  }
+}
+
+function stopCasefileAmbient() {
+  if (!casefileAmbientSource) return;
+  const ctx = audioEngine.getContext();
+  if (casefileAmbientGain) {
+    casefileAmbientGain.gain.setTargetAtTime(0, ctx.currentTime, 0.4);
+  }
+  const src = casefileAmbientSource;
+  casefileAmbientSource = null;
+  setTimeout(() => { try { src.stop(); } catch { /* already stopped */ } }, 1200);
+}
+
 // ── RETURN TO MAIN MENU ─────────────────────────────────────────────
 function returnToMenu() {
   // Stop all gameplay audio
+  stopCasefileAmbient();
   if (atmosphere) {
     const ctx = audioEngine.getContext();
     atmosphere.droneGain.gain.setTargetAtTime(0, ctx.currentTime, 0.3);
@@ -393,7 +463,10 @@ function returnToMenu() {
     threatSystem.threatLevel = 0;
   }
 
-  // Switch to menu phase and start menu music
+  // Re-activate the main menu and switch phase
+  mainMenu.active = true;
+  mainMenu.subMenu = null;
+  mainMenu.selectedIndex = 0;
   gameState.setPhase('menu');
   startMenuMusic();
 }
@@ -516,7 +589,13 @@ function startGame() {
   });
 
   // Save progress when a level loads
-  eventBus.on('level:loaded', ({ level }) => mainMenu.saveProgress(level));
+  eventBus.on('level:loaded', ({ level }) => {
+    mainMenu.saveProgress(level);
+    // Case file auto-opens when a level loads — play ambient audio, quiet the static
+    startCasefileAmbient();
+    const ctx = audioEngine.getContext();
+    radioTuner.noiseGain.gain.setTargetAtTime(0.08, ctx.currentTime, 0.3);
+  });
 
   levelManager = new LevelManager(
     gameState, radioTuner, ghostCollection, uiOverlay,

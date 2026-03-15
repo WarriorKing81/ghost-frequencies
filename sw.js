@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ghost-frequency-v4';
+const CACHE_NAME = 'ghost-frequency-v5';
 const ASSETS = [
   '/',
   '/index.html',
@@ -35,6 +35,7 @@ const ASSETS = [
   '/src/camera/FaceReaction.js',
   '/src/audio/GhostVoice.js',
   '/assets/audio/menu-music.mp3',
+  '/assets/audio/casefile-ambient.mp3',
 ];
 
 // Install — cache all app shell assets, skip waiting to activate immediately
