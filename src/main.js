@@ -612,7 +612,7 @@ function startGame() {
     });
   }
 
-  // Touch/click handler for case file menu button
+  // Touch/click handler for case file buttons
   canvas.addEventListener('click', (e) => {
     if (gameState.phase !== 'casefile') return;
     const rect = canvas.getBoundingClientRect();
@@ -622,7 +622,34 @@ function startGame() {
     const py = (e.clientY - rect.top) * scaleY;
     if (caseFile.hitTestMenuButton(px, py)) {
       returnToMenu();
+    } else if (caseFile.hitTestCloseButton(px, py) || caseFile.hitTestInvestigateButton(px, py)) {
+      caseFile.close();
+      stopCasefileAmbient();
+      const ctx = audioEngine.getContext();
+      radioTuner.noiseGain.gain.setTargetAtTime(0.5, ctx.currentTime, 0.3);
     }
+  });
+
+  // Handle touch-based close/menu from CaseFile's own touch handler
+  const processCasefileTouchActions = () => {
+    if (!caseFile.isOpen) return;
+    if (caseFile._pendingClose || caseFile._pendingInvestigate) {
+      caseFile._pendingClose = false;
+      caseFile._pendingInvestigate = false;
+      caseFile.close();
+      stopCasefileAmbient();
+      const ctx = audioEngine.getContext();
+      radioTuner.noiseGain.gain.setTargetAtTime(0.5, ctx.currentTime, 0.3);
+    }
+    if (caseFile._pendingMenu) {
+      caseFile._pendingMenu = false;
+      returnToMenu();
+    }
+  };
+  canvas.addEventListener('touchend', () => {
+    if (gameState.phase !== 'casefile') return;
+    // Small delay so the flag is set before we check
+    requestAnimationFrame(processCasefileTouchActions);
   });
 
   // Show main menu with background music

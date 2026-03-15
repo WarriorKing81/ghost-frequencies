@@ -17,13 +17,15 @@ export class CaseFile {
     // Paper texture noise (generated once)
     this._paperCanvas = null;
 
-    // Back to menu button bounds (set during draw)
+    // Button bounds (set during draw)
     this._menuBtnBounds = null;
+    this._closeBtnBounds = null;
 
     // Touch scrolling state
     this._touchStartY = null;
     this._touchScrollStart = 0;
     this._scrollVelocity = 0;
+    this._lastTouchY = null;
   }
 
   loadCase(caseData) {
@@ -58,23 +60,54 @@ export class CaseFile {
 
   // Enable touch scrolling on the canvas
   enableTouch(canvas) {
+    this._canvas = canvas;
+
     canvas.addEventListener('touchstart', (e) => {
       if (!this.isOpen) return;
-      this._touchStartY = e.touches[0].clientY;
+      e.preventDefault(); // prevent default scroll — we handle it
+      const touch = e.touches[0];
+      this._touchStartY = touch.clientY;
+      this._lastTouchY = touch.clientY;
       this._touchScrollStart = this.scrollY;
       this._scrollVelocity = 0;
-    }, { passive: true });
+
+      // Check close button hit
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const px = (touch.clientX - rect.left) * scaleX;
+      const py = (touch.clientY - rect.top) * scaleY;
+      if (this.hitTestCloseButton(px, py)) {
+        this._pendingClose = true;
+      }
+      if (this.hitTestMenuButton(px, py)) {
+        this._pendingMenu = true;
+      }
+      if (this.hitTestInvestigateButton(px, py)) {
+        this._pendingInvestigate = true;
+      }
+    }, { passive: false });
 
     canvas.addEventListener('touchmove', (e) => {
       if (!this.isOpen || this._touchStartY === null) return;
-      const dy = this._touchStartY - e.touches[0].clientY;
+      e.preventDefault();
+      const touch = e.touches[0];
+      const dy = this._lastTouchY - touch.clientY;
+      this._lastTouchY = touch.clientY;
       const scale = canvas.height / canvas.getBoundingClientRect().height;
-      this.scrollY = Math.max(0, Math.min(this.maxScrollY, this._touchScrollStart + dy * scale));
-      this._scrollVelocity = dy * scale;
-    }, { passive: true });
+      this._scrollVelocity = dy * scale * 15; // amplify for inertia
+      this.scrollY = Math.max(0, Math.min(this.maxScrollY, this.scrollY + dy * scale));
+      // Cancel button taps if user is scrolling
+      if (Math.abs(this._touchStartY - touch.clientY) > 10) {
+        this._pendingClose = false;
+        this._pendingMenu = false;
+        this._pendingInvestigate = false;
+      }
+    }, { passive: false });
 
     canvas.addEventListener('touchend', () => {
       this._touchStartY = null;
+      this._lastTouchY = null;
     }, { passive: true });
 
     // Mouse wheel scrolling
@@ -386,32 +419,75 @@ export class CaseFile {
       }
     }
 
-    // Bottom instructions on the folder
-    ctx.font = `${isMobile ? 11 : 10}px "Courier New", monospace`;
-    ctx.fillStyle = `rgba(100, 80, 55, ${0.5 * alpha})`;
-    ctx.textAlign = 'center';
-    ctx.fillText(isMobile ? 'Swipe to scroll' : '[TAB] Close  |  [Q] Type  |  [V] Speak', w / 2, folderY + folderH - 8);
+    // ── CLOSE BUTTON (X) — top right of folder ──
+    const closeBtnSize = isMobile ? 40 : 32;
+    const closeBtnX = folderX + folderW - closeBtnSize - 5;
+    const closeBtnY = folderY + 5;
 
-    // ── MAIN MENU BUTTON ──
-    const btnW = isMobile ? 200 : 180;
-    const btnH = isMobile ? 44 : 36;
-    const btnX = (w - btnW) / 2;
-    const btnY = folderY + folderH + 10;
-
-    ctx.fillStyle = `rgba(0, 0, 0, ${0.6 * alpha})`;
-    ctx.strokeStyle = `rgba(0, 255, 65, ${0.4 * alpha})`;
-    ctx.lineWidth = 1;
+    ctx.fillStyle = `rgba(0, 0, 0, ${0.5 * alpha})`;
     ctx.beginPath();
-    ctx.roundRect(btnX, btnY, btnW, btnH, 4);
+    ctx.arc(closeBtnX + closeBtnSize / 2, closeBtnY + closeBtnSize / 2, closeBtnSize / 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = `rgba(200, 60, 60, ${0.6 * alpha})`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // X mark
+    ctx.strokeStyle = `rgba(255, 80, 80, ${0.8 * alpha})`;
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    const xOff = closeBtnSize * 0.25;
+    ctx.beginPath();
+    ctx.moveTo(closeBtnX + xOff, closeBtnY + xOff);
+    ctx.lineTo(closeBtnX + closeBtnSize - xOff, closeBtnY + closeBtnSize - xOff);
+    ctx.moveTo(closeBtnX + closeBtnSize - xOff, closeBtnY + xOff);
+    ctx.lineTo(closeBtnX + xOff, closeBtnY + closeBtnSize - xOff);
+    ctx.stroke();
+
+    this._closeBtnBounds = { x: closeBtnX, y: closeBtnY, w: closeBtnSize, h: closeBtnSize };
+
+    // ── BOTTOM BUTTONS ──
+    const btnH = isMobile ? 44 : 36;
+    const gap = 10;
+    const totalBtnW = isMobile ? w * 0.88 : 380;
+    const closeBtnW = totalBtnW * 0.55;
+    const menuBtnW = totalBtnW * 0.45 - gap;
+    const startX = (w - totalBtnW) / 2;
+    const btnY = folderY + folderH + 8;
+
+    // START INVESTIGATION button (closes case file)
+    ctx.fillStyle = `rgba(0, 40, 10, ${0.7 * alpha})`;
+    ctx.strokeStyle = `rgba(0, 255, 65, ${0.5 * alpha})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(startX, btnY, closeBtnW, btnH, 4);
     ctx.fill();
     ctx.stroke();
 
     ctx.font = `bold ${isMobile ? 14 : 12}px "Courier New", monospace`;
-    ctx.fillStyle = `rgba(0, 255, 65, ${0.7 * alpha})`;
-    ctx.fillText('\u25C0 MAIN MENU', w / 2, btnY + btnH / 2 + 5);
+    ctx.fillStyle = `rgba(0, 255, 65, ${0.9 * alpha})`;
+    ctx.textAlign = 'center';
+    ctx.fillText('\u25B6 START INVESTIGATION', startX + closeBtnW / 2, btnY + btnH / 2 + 5);
+
+    // Store close/investigate button bounds (reuse _closeBtnBounds for the X, this for the big button)
+    this._investigateBtnBounds = { x: startX, y: btnY, w: closeBtnW, h: btnH };
+
+    // MAIN MENU button
+    const menuX = startX + closeBtnW + gap;
+    ctx.fillStyle = `rgba(0, 0, 0, ${0.6 * alpha})`;
+    ctx.strokeStyle = `rgba(0, 255, 65, ${0.3 * alpha})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(menuX, btnY, menuBtnW, btnH, 4);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.font = `bold ${isMobile ? 12 : 11}px "Courier New", monospace`;
+    ctx.fillStyle = `rgba(0, 255, 65, ${0.6 * alpha})`;
+    ctx.fillText('\u25C0 MENU', menuX + menuBtnW / 2, btnY + btnH / 2 + 5);
     ctx.textAlign = 'left';
 
-    this._menuBtnBounds = { x: btnX, y: btnY, w: btnW, h: btnH };
+    this._menuBtnBounds = { x: menuX, y: btnY, w: menuBtnW, h: btnH };
 
     // Paper clip
     this._drawPaperClip(ctx, paperX + paperW - 25, paperY - 5, alpha);
@@ -420,6 +496,22 @@ export class CaseFile {
   hitTestMenuButton(px, py) {
     if (!this._menuBtnBounds || !this.isOpen) return false;
     const b = this._menuBtnBounds;
+    return px >= b.x && px <= b.x + b.w && py >= b.y && py <= b.y + b.h;
+  }
+
+  hitTestCloseButton(px, py) {
+    if (!this._closeBtnBounds || !this.isOpen) return false;
+    const b = this._closeBtnBounds;
+    // Circle hit test for the X button
+    const cx = b.x + b.w / 2;
+    const cy = b.y + b.h / 2;
+    const r = b.w / 2 + 5; // slight padding
+    return (px - cx) ** 2 + (py - cy) ** 2 <= r * r;
+  }
+
+  hitTestInvestigateButton(px, py) {
+    if (!this._investigateBtnBounds || !this.isOpen) return false;
+    const b = this._investigateBtnBounds;
     return px >= b.x && px <= b.x + b.w && py >= b.y && py <= b.y + b.h;
   }
 
