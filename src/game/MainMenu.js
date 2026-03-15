@@ -41,12 +41,12 @@ export class MainMenu {
     this.settingsItems = ['Master Volume', 'Music Volume', 'SFX Volume', 'Camera', 'Back'];
     this.settingsIndex = 0;
 
-    // Social links
+    // Social links — URLs open in new tab when tapped
     this.socialLinks = [
-      { name: 'Facebook', icon: 'f', color: '#1877f2' },
-      { name: 'Instagram', icon: 'ig', color: '#e4405f' },
-      { name: 'X', icon: 'X', color: '#ffffff' },
-      { name: 'TikTok', icon: 'tt', color: '#00f2ea' },
+      { name: 'Facebook', icon: 'f', color: '#1877f2', url: 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(window.location.href) },
+      { name: 'Instagram', icon: 'ig', color: '#e4405f', url: 'https://www.instagram.com/' },
+      { name: 'X', icon: 'X', color: '#ffffff', url: 'https://twitter.com/intent/tweet?text=' + encodeURIComponent('I\'m hunting ghosts in Ghost Frequency! Can you survive? ') + '&url=' + encodeURIComponent(window.location.href) },
+      { name: 'TikTok', icon: 'tt', color: '#00f2ea', url: 'https://www.tiktok.com/' },
     ];
 
     // Touch/click support — store hit regions for menu items
@@ -158,10 +158,12 @@ export class MainMenu {
         clientY = e.clientY;
       }
 
-      // Canvas might be scaled by devicePixelRatio but hit regions use CSS coords
+      // Convert CSS click position to canvas coordinates
       const rect = canvas.getBoundingClientRect();
-      const x = clientX - rect.left;
-      const y = clientY - rect.top;
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const x = (clientX - rect.left) * scaleX;
+      const y = (clientY - rect.top) * scaleY;
 
       for (const region of this.hitRegions) {
         if (x >= region.x && x <= region.x + region.w &&
@@ -335,6 +337,10 @@ export class MainMenu {
     }
     if (action.type === 'back') {
       this.subMenu = null;
+      return null;
+    }
+    if (action.type === 'social') {
+      window.open(action.url, '_blank');
       return null;
     }
     return null;
@@ -541,6 +547,7 @@ export class MainMenu {
 
   _drawMainMenu(ctx, w, h) {
     const cx = w / 2;
+    const isMobile = w < 500;
 
     // Clear hit regions for this frame
     this.hitRegions = [];
@@ -550,35 +557,38 @@ export class MainMenu {
     ctx.textAlign = 'center';
     ctx.shadowBlur = 30 + this.titleGlow * 20;
     ctx.shadowColor = '#00ff41';
-    ctx.font = `bold ${Math.min(42, w * 0.065)}px "Courier New", monospace`;
+    ctx.font = `bold ${isMobile ? Math.min(36, w * 0.1) : Math.min(42, w * 0.065)}px "Courier New", monospace`;
     ctx.fillStyle = '#00ff41';
-    ctx.fillText('GHOST FREQUENCY', cx, h * 0.18);
+    ctx.fillText('GHOST FREQUENCY', cx, h * 0.15);
 
     // Subtitle
     ctx.shadowBlur = 10;
-    ctx.font = `${Math.min(14, w * 0.025)}px "Courier New", monospace`;
-    ctx.fillStyle = 'rgba(0, 255, 65, 0.5)';
-    ctx.fillText('PARANORMAL INVESTIGATION UNIT', cx, h * 0.23);
+    ctx.font = `${isMobile ? Math.min(12, w * 0.032) : Math.min(14, w * 0.025)}px "Courier New", monospace`;
+    ctx.fillStyle = 'rgba(0, 255, 65, 0.6)';
+    ctx.fillText('PARANORMAL INVESTIGATION UNIT', cx, h * 0.20);
 
     // Horizontal rule
-    const lineW = Math.min(300, w * 0.5);
-    ctx.strokeStyle = 'rgba(0, 255, 65, 0.2)';
+    const lineW = Math.min(300, w * 0.6);
+    ctx.strokeStyle = 'rgba(0, 255, 65, 0.3)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(cx - lineW / 2, h * 0.26);
-    ctx.lineTo(cx + lineW / 2, h * 0.26);
+    ctx.moveTo(cx - lineW / 2, h * 0.23);
+    ctx.lineTo(cx + lineW / 2, h * 0.23);
     ctx.stroke();
 
-    // Menu items
-    const menuStartY = h * 0.35;
-    const itemSpacing = Math.min(55, h * 0.08);
-    ctx.font = `${Math.min(22, w * 0.04)}px "Courier New", monospace`;
+    // Menu items — bigger on mobile for easy tapping
+    const menuStartY = h * 0.30;
+    const itemSpacing = isMobile ? Math.min(65, h * 0.09) : Math.min(55, h * 0.08);
+    const menuFontSize = isMobile ? Math.min(24, w * 0.065) : Math.min(22, w * 0.04);
+    ctx.font = `${menuFontSize}px "Courier New", monospace`;
 
     this.items.forEach((item, i) => {
       const y = menuStartY + i * itemSpacing;
-      // Register tap region for this menu item
+      // Register tap region for this menu item — bigger on mobile
+      const regionW = isMobile ? w * 0.85 : 300;
+      const regionH = isMobile ? 50 : 44;
       this.hitRegions.push({
-        x: cx - 150, y: y - 22, w: 300, h: 44,
+        x: cx - regionW / 2, y: y - regionH / 2, w: regionW, h: regionH,
         action: { type: 'menuItem', index: i },
       });
       const isSelected = i === this.selectedIndex;
@@ -650,35 +660,38 @@ export class MainMenu {
 
   _drawCasesMenu(ctx, w, h) {
     const cx = w / 2;
+    const isMobile = w < 500;
     this.hitRegions = [];
     ctx.save();
     ctx.textAlign = 'center';
 
-    // Back button region at bottom
+    // Back button at bottom
+    const backBtnW = isMobile ? 160 : 200;
+    const backBtnH = isMobile ? 44 : 35;
     this.hitRegions.push({
-      x: cx - 100, y: h - 45, w: 200, h: 35,
+      x: cx - backBtnW / 2, y: h - backBtnH - 10, w: backBtnW, h: backBtnH,
       action: { type: 'back' },
     });
 
     // Title
-    ctx.font = `bold ${Math.min(28, w * 0.045)}px "Courier New", monospace`;
+    ctx.font = `bold ${isMobile ? Math.min(28, w * 0.075) : Math.min(28, w * 0.045)}px "Courier New", monospace`;
     ctx.fillStyle = '#00ff41';
     ctx.shadowBlur = 20;
     ctx.shadowColor = '#00ff41';
-    ctx.fillText('CASE FILES', cx, h * 0.1);
+    ctx.fillText('CASE FILES', cx, h * 0.08);
 
     // Cases list
-    const startY = h * 0.18;
-    const cardH = Math.min(90, h * 0.13);
-    const cardW = Math.min(500, w * 0.85);
+    const startY = h * 0.14;
+    const cardH = isMobile ? Math.min(110, h * 0.15) : Math.min(90, h * 0.13);
+    const cardW = isMobile ? w * 0.92 : Math.min(500, w * 0.85);
     const cardX = cx - cardW / 2;
+    const cardGap = isMobile ? 12 : 10;
 
     CASES.forEach((c, i) => {
-      const y = startY + i * (cardH + 10);
+      const y = startY + i * (cardH + cardGap);
       const isSelected = i === this.caseSelectedIndex;
       const isSolved = this.ghostCollection.has(c.ghost.id);
 
-      // Register tap region for this case card
       this.hitRegions.push({
         x: cardX, y: y, w: cardW, h: cardH,
         action: { type: 'caseItem', index: i },
@@ -686,62 +699,62 @@ export class MainMenu {
 
       // Card background
       ctx.fillStyle = isSelected
-        ? 'rgba(0, 255, 65, 0.08)'
-        : 'rgba(20, 20, 20, 0.6)';
+        ? 'rgba(0, 255, 65, 0.1)'
+        : 'rgba(20, 20, 20, 0.7)';
       ctx.fillRect(cardX, y, cardW, cardH);
 
       // Card border
       ctx.strokeStyle = isSelected
-        ? 'rgba(0, 255, 65, 0.5)'
-        : 'rgba(0, 255, 65, 0.1)';
+        ? 'rgba(0, 255, 65, 0.6)'
+        : 'rgba(0, 255, 65, 0.15)';
       ctx.lineWidth = isSelected ? 2 : 1;
       ctx.strokeRect(cardX, y, cardW, cardH);
 
       // Case number badge
-      ctx.fillStyle = isSolved ? 'rgba(0, 255, 65, 0.15)' : 'rgba(255, 60, 60, 0.1)';
+      ctx.fillStyle = isSolved ? 'rgba(0, 255, 65, 0.2)' : 'rgba(255, 60, 60, 0.15)';
       ctx.fillRect(cardX, y, 6, cardH);
 
-      // Case number
+      // Case number — bigger on mobile
       ctx.textAlign = 'left';
-      ctx.font = `bold ${Math.min(11, w * 0.02)}px "Courier New", monospace`;
+      ctx.font = `bold ${isMobile ? 14 : 11}px "Courier New", monospace`;
       ctx.fillStyle = isSolved ? '#00ff41' : '#ff4444';
       ctx.shadowBlur = 0;
-      ctx.fillText(`CASE #${c.caseNumber}`, cardX + 15, y + 18);
+      ctx.fillText(`CASE #${c.caseNumber}`, cardX + 15, y + (isMobile ? 22 : 18));
 
       // Status badge
       ctx.textAlign = 'right';
-      ctx.font = `bold ${Math.min(10, w * 0.018)}px "Courier New", monospace`;
+      ctx.font = `bold ${isMobile ? 13 : 10}px "Courier New", monospace`;
       if (isSolved) {
         ctx.fillStyle = '#00ff41';
-        ctx.fillText('CLOSED', cardX + cardW - 12, y + 18);
+        ctx.fillText('CLOSED', cardX + cardW - 12, y + (isMobile ? 22 : 18));
       } else {
         ctx.fillStyle = '#ff4444';
-        ctx.fillText('OPEN', cardX + cardW - 12, y + 18);
+        ctx.fillText('OPEN', cardX + cardW - 12, y + (isMobile ? 22 : 18));
       }
 
-      // Victim name
+      // Victim name — bigger and bolder
       ctx.textAlign = 'left';
-      ctx.font = `bold ${Math.min(16, w * 0.028)}px "Georgia", serif`;
-      ctx.fillStyle = isSelected ? '#fff' : 'rgba(255, 255, 255, 0.7)';
+      ctx.font = `bold ${isMobile ? 20 : 16}px "Georgia", serif`;
+      ctx.fillStyle = isSelected ? '#fff' : 'rgba(255, 255, 255, 0.8)';
       ctx.shadowBlur = isSelected ? 5 : 0;
       ctx.shadowColor = c.ghost.color;
-      ctx.fillText(c.victimName, cardX + 15, y + 40);
+      ctx.fillText(c.victimName, cardX + 15, y + (isMobile ? 50 : 40));
 
       // Classification
-      ctx.font = `${Math.min(10, w * 0.017)}px "Courier New", monospace`;
-      ctx.fillStyle = 'rgba(200, 200, 200, 0.4)';
+      ctx.font = `${isMobile ? 13 : 10}px "Courier New", monospace`;
+      ctx.fillStyle = 'rgba(200, 200, 200, 0.5)';
       ctx.shadowBlur = 0;
-      ctx.fillText(c.classification, cardX + 15, y + 55);
+      ctx.fillText(c.classification, cardX + 15, y + (isMobile ? 70 : 55));
 
       // Location & date
-      ctx.fillStyle = 'rgba(200, 200, 200, 0.3)';
-      ctx.fillText(`${c.location}  |  ${c.date}`, cardX + 15, y + 70);
+      ctx.fillStyle = 'rgba(200, 200, 200, 0.4)';
+      ctx.fillText(`${c.location}  |  ${c.date}`, cardX + 15, y + (isMobile ? 88 : 70));
 
       // Ghost color accent dot
       ctx.beginPath();
-      ctx.arc(cardX + cardW - 25, y + cardH / 2 + 10, 5, 0, Math.PI * 2);
+      ctx.arc(cardX + cardW - 25, y + cardH / 2 + 10, 6, 0, Math.PI * 2);
       ctx.fillStyle = c.ghost.color;
-      ctx.shadowBlur = 8;
+      ctx.shadowBlur = 10;
       ctx.shadowColor = c.ghost.color;
       ctx.fill();
       ctx.shadowBlur = 0;
@@ -749,12 +762,19 @@ export class MainMenu {
       ctx.textAlign = 'center';
     });
 
-    // Controls
-    ctx.font = `${Math.min(11, w * 0.02)}px "Courier New", monospace`;
-    ctx.fillStyle = 'rgba(100, 100, 100, 0.5)';
-    ctx.shadowBlur = 0;
-    ctx.textAlign = 'center';
-    ctx.fillText('[UP/DOWN] Select Case  [ENTER] Investigate  [ESC] Back', cx, h - 20);
+    // Back button visual
+    const bx = cx - backBtnW / 2;
+    const by = h - backBtnH - 10;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.strokeStyle = 'rgba(0, 255, 65, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(bx, by, backBtnW, backBtnH, 4);
+    ctx.fill();
+    ctx.stroke();
+    ctx.font = `bold ${isMobile ? 14 : 12}px "Courier New", monospace`;
+    ctx.fillStyle = 'rgba(0, 255, 65, 0.7)';
+    ctx.fillText('\u25C0 BACK', cx, by + backBtnH / 2 + 5);
 
     ctx.restore();
   }
@@ -838,8 +858,8 @@ export class MainMenu {
   _drawSocialLinks(ctx, w, h) {
     const cx = w / 2;
     const y = h * 0.78;
-    const iconSize = 28;
-    const spacing = 50;
+    const iconSize = 36;
+    const spacing = 55;
     const totalW = (this.socialLinks.length - 1) * spacing;
     const startX = cx - totalW / 2;
 
@@ -847,13 +867,22 @@ export class MainMenu {
     ctx.textAlign = 'center';
 
     // Section label
-    ctx.font = `${Math.min(10, w * 0.018)}px "Courier New", monospace`;
-    ctx.fillStyle = 'rgba(100, 100, 100, 0.4)';
+    ctx.font = `${Math.min(12, w * 0.022)}px "Courier New", monospace`;
+    ctx.fillStyle = 'rgba(150, 150, 150, 0.5)';
     ctx.shadowBlur = 0;
-    ctx.fillText('SHARE YOUR REACTIONS', cx, y - 25);
+    ctx.fillText('SHARE YOUR REACTIONS', cx, y - 30);
 
     this.socialLinks.forEach((link, i) => {
       const x = startX + i * spacing;
+
+      // Register tap region for this social icon
+      // Convert canvas coords to CSS coords for hit testing
+      const canvasRect = { x: x - iconSize / 2, y: y - iconSize / 2, w: iconSize, h: iconSize };
+      // Store in canvas-space for hit regions (handler will convert)
+      this.hitRegions.push({
+        x: canvasRect.x, y: canvasRect.y, w: canvasRect.w, h: canvasRect.h,
+        action: { type: 'social', url: link.url },
+      });
 
       // Circle background
       ctx.beginPath();
@@ -861,13 +890,13 @@ export class MainMenu {
       ctx.fillStyle = 'rgba(30, 30, 30, 0.8)';
       ctx.fill();
       ctx.strokeStyle = link.color;
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 2;
       ctx.stroke();
 
       // Icon letter
-      ctx.font = `bold ${Math.min(12, w * 0.022)}px "Courier New", monospace`;
+      ctx.font = `bold ${Math.min(14, w * 0.026)}px "Courier New", monospace`;
       ctx.fillStyle = link.color;
-      ctx.fillText(link.icon, x, y + 4);
+      ctx.fillText(link.icon, x, y + 5);
     });
 
     ctx.restore();

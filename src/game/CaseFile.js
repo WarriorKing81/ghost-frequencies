@@ -3,7 +3,7 @@ import { eventBus } from '../core/EventBus.js';
 /**
  * Manages the case file display and state.
  * When open, the screen shows a realistic manila folder with paper inside —
- * no static, no waveform. Creepy music plays instead.
+ * no static, no waveform. Background music continues from the level.
  */
 export class CaseFile {
   constructor() {
@@ -11,11 +11,19 @@ export class CaseFile {
     this.isOpen = false;
     this.openProgress = 0;
     this.scrollY = 0;
+    this.maxScrollY = 0;
     this.revealedClues = [];
 
     // Paper texture noise (generated once)
     this._paperCanvas = null;
-    this._folderCanvas = null;
+
+    // Back to menu button bounds (set during draw)
+    this._menuBtnBounds = null;
+
+    // Touch scrolling state
+    this._touchStartY = null;
+    this._touchScrollStart = 0;
+    this._scrollVelocity = 0;
   }
 
   loadCase(caseData) {
@@ -48,30 +56,63 @@ export class CaseFile {
     );
   }
 
+  // Enable touch scrolling on the canvas
+  enableTouch(canvas) {
+    canvas.addEventListener('touchstart', (e) => {
+      if (!this.isOpen) return;
+      this._touchStartY = e.touches[0].clientY;
+      this._touchScrollStart = this.scrollY;
+      this._scrollVelocity = 0;
+    }, { passive: true });
+
+    canvas.addEventListener('touchmove', (e) => {
+      if (!this.isOpen || this._touchStartY === null) return;
+      const dy = this._touchStartY - e.touches[0].clientY;
+      const scale = canvas.height / canvas.getBoundingClientRect().height;
+      this.scrollY = Math.max(0, Math.min(this.maxScrollY, this._touchScrollStart + dy * scale));
+      this._scrollVelocity = dy * scale;
+    }, { passive: true });
+
+    canvas.addEventListener('touchend', () => {
+      this._touchStartY = null;
+    }, { passive: true });
+
+    // Mouse wheel scrolling
+    canvas.addEventListener('wheel', (e) => {
+      if (!this.isOpen) return;
+      e.preventDefault();
+      this.scrollY = Math.max(0, Math.min(this.maxScrollY, this.scrollY + e.deltaY));
+    }, { passive: false });
+  }
+
   update(dt) {
     const target = this.isOpen ? 1 : 0;
     this.openProgress += (target - this.openProgress) * dt * 4;
     if (Math.abs(this.openProgress - target) < 0.01) {
       this.openProgress = target;
     }
+
+    // Inertia scrolling
+    if (this._touchStartY === null && Math.abs(this._scrollVelocity) > 0.5) {
+      this.scrollY += this._scrollVelocity * dt;
+      this.scrollY = Math.max(0, Math.min(this.maxScrollY, this.scrollY));
+      this._scrollVelocity *= 0.92;
+    }
   }
 
   _ensureTextures(w, h) {
-    // Generate paper texture once
     if (!this._paperCanvas || this._paperCanvas.width !== w) {
       this._paperCanvas = document.createElement('canvas');
       this._paperCanvas.width = w;
       this._paperCanvas.height = h;
       const pctx = this._paperCanvas.getContext('2d');
-
-      // Paper grain
       const imageData = pctx.createImageData(w, h);
       const d = imageData.data;
       for (let i = 0; i < d.length; i += 4) {
         const grain = Math.random() * 15;
-        d[i] = 235 + grain;     // R
-        d[i + 1] = 225 + grain; // G
-        d[i + 2] = 200 + grain; // B
+        d[i] = 235 + grain;
+        d[i + 1] = 225 + grain;
+        d[i + 2] = 200 + grain;
         d[i + 3] = 255;
       }
       pctx.putImageData(imageData, 0, 0);
@@ -85,16 +126,15 @@ export class CaseFile {
 
     const c = this.currentCase;
     const alpha = this.openProgress;
+    const isMobile = w < 500;
 
-    // ── FULL BLACK BACKGROUND (no static behind) ──
+    // ── FULL BLACK BACKGROUND ──
     ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
     ctx.fillRect(0, 0, w, h);
 
     // ── DESK SURFACE ──
-    // Dark wood desk texture
     ctx.fillStyle = `rgba(35, 25, 18, ${alpha})`;
     ctx.fillRect(0, 0, w, h);
-    // Wood grain lines
     for (let i = 0; i < 30; i++) {
       const gy = (i / 30) * h + Math.sin(i * 2.3) * 5;
       ctx.strokeStyle = `rgba(50, 35, 22, ${0.3 * alpha})`;
@@ -108,20 +148,20 @@ export class CaseFile {
     }
 
     // ── MANILA FOLDER ──
-    const folderW = Math.min(w * 0.88, 520);
-    const folderH = h * 0.82;
+    const folderW = isMobile ? w * 0.94 : Math.min(w * 0.88, 520);
+    const folderH = h * (isMobile ? 0.84 : 0.82);
     const folderX = (w - folderW) / 2;
-    const folderY = (h - folderH) / 2 + (1 - alpha) * 80;
+    const folderY = (h - folderH) / 2 + (1 - alpha) * 80 - (isMobile ? 10 : 0);
 
     // Folder shadow
     ctx.fillStyle = `rgba(0, 0, 0, ${0.4 * alpha})`;
     ctx.fillRect(folderX + 6, folderY + 6, folderW, folderH);
 
-    // Folder back panel (slightly wider, visible at top)
+    // Folder back panel
     ctx.fillStyle = `rgba(195, 170, 120, ${alpha})`;
     ctx.fillRect(folderX - 3, folderY - 3, folderW + 6, folderH + 6);
 
-    // Folder tab (sticks up from the back)
+    // Folder tab
     const tabW = 120;
     const tabH = 28;
     const tabX = folderX + 30;
@@ -136,24 +176,23 @@ export class CaseFile {
     ctx.lineTo(tabX + tabW, tabY + tabH);
     ctx.fill();
 
-    // Tab label
     ctx.font = 'bold 11px "Courier New", monospace';
     ctx.fillStyle = `rgba(80, 60, 35, ${alpha})`;
     ctx.textAlign = 'left';
     ctx.fillText('CASE FILE', tabX + 18, tabY + 18);
 
-    // Folder front panel (the actual folder face)
+    // Folder front panel
     ctx.fillStyle = `rgba(210, 185, 135, ${alpha})`;
     ctx.fillRect(folderX, folderY, folderW, folderH);
 
-    // Folder texture — subtle fibrous look
+    // Folder texture
     ctx.globalAlpha = 0.06 * alpha;
     if (this._paperCanvas) {
       ctx.drawImage(this._paperCanvas, folderX, folderY, folderW, folderH);
     }
     ctx.globalAlpha = 1.0;
 
-    // Folder crease / wear lines
+    // Crease line
     ctx.strokeStyle = `rgba(170, 145, 100, ${0.3 * alpha})`;
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -161,8 +200,8 @@ export class CaseFile {
     ctx.lineTo(folderX + folderW, folderY + folderH * 0.02);
     ctx.stroke();
 
-    // ── WHITE PAPER inside the folder ──
-    const paperMargin = 18;
+    // ── WHITE PAPER ──
+    const paperMargin = isMobile ? 10 : 18;
     const paperX = folderX + paperMargin;
     const paperY = folderY + paperMargin + 5;
     const paperW = folderW - paperMargin * 2;
@@ -172,7 +211,7 @@ export class CaseFile {
     ctx.fillStyle = `rgba(0, 0, 0, ${0.08 * alpha})`;
     ctx.fillRect(paperX + 2, paperY + 2, paperW, paperH);
 
-    // Paper
+    // Paper background
     ctx.fillStyle = `rgba(248, 243, 230, ${alpha})`;
     ctx.fillRect(paperX, paperY, paperW, paperH);
 
@@ -183,131 +222,205 @@ export class CaseFile {
     }
     ctx.globalAlpha = 1.0;
 
+    // Red margin line (desktop only)
+    if (!isMobile) {
+      ctx.strokeStyle = `rgba(220, 120, 120, ${0.2 * alpha})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(paperX + 55, paperY);
+      ctx.lineTo(paperX + 55, paperY + paperH);
+      ctx.stroke();
+    }
+
+    // ── SCROLLABLE CONTENT AREA ──
+    // Clip to paper bounds for scrolling
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(paperX, paperY, paperW, paperH);
+    ctx.clip();
+
+    // Apply scroll offset
+    const scrollOffset = -this.scrollY;
+
+    // Responsive font sizing
+    const baseFontSize = isMobile ? 15 : 13;
+    const headingSize = isMobile ? 28 : 22;
+    const labelSize = isMobile ? 14 : 12;
+    const smallSize = isMobile ? 13 : 11;
+    const lineH = isMobile ? 22 : 18;
+
+    const cx = paperX + (isMobile ? 12 : 65);
+    let cy = paperY + 35 + scrollOffset;
+    const maxW = paperW - (isMobile ? 20 : 80);
+
     // Faint ruled lines on paper
     ctx.strokeStyle = `rgba(180, 200, 220, ${0.15 * alpha})`;
     ctx.lineWidth = 0.5;
-    for (let ly = paperY + 25; ly < paperY + paperH - 10; ly += 20) {
+    for (let ly = paperY + 25 + (scrollOffset % 20); ly < paperY + paperH + 200; ly += 20) {
       ctx.beginPath();
       ctx.moveTo(paperX + 10, ly);
       ctx.lineTo(paperX + paperW - 10, ly);
       ctx.stroke();
     }
 
-    // Red margin line
-    ctx.strokeStyle = `rgba(220, 120, 120, ${0.2 * alpha})`;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(paperX + 55, paperY);
-    ctx.lineTo(paperX + 55, paperY + paperH);
-    ctx.stroke();
-
-    // ── CONTENT ON THE PAPER ──
-    const cx = paperX + 65;
-    let cy = paperY + 30;
-    const maxW = paperW - 80;
-
     // Red stamp: CLASSIFIED
     ctx.save();
-    ctx.translate(paperX + paperW - 80, paperY + 45);
+    ctx.translate(paperX + paperW - 80, cy + 15);
     ctx.rotate(-0.15);
-    ctx.font = 'bold 16px "Courier New", monospace';
-    ctx.fillStyle = `rgba(200, 50, 50, ${0.35 * alpha})`;
-    ctx.strokeStyle = `rgba(200, 50, 50, ${0.25 * alpha})`;
+    ctx.font = `bold ${isMobile ? 20 : 16}px "Courier New", monospace`;
+    ctx.fillStyle = `rgba(200, 50, 50, ${0.5 * alpha})`;
+    ctx.strokeStyle = `rgba(200, 50, 50, ${0.4 * alpha})`;
     ctx.lineWidth = 2;
-    ctx.strokeRect(-45, -15, 90, 25);
+    ctx.strokeRect(-50, -16, 100, 28);
     ctx.textAlign = 'center';
-    ctx.fillText('CLASSIFIED', 0, 3);
+    ctx.fillText('CLASSIFIED', 0, 4);
     ctx.restore();
 
-    // Case number + classification
+    // Case number
     ctx.textAlign = 'left';
-    ctx.font = 'bold 10px "Courier New", monospace';
-    ctx.fillStyle = `rgba(180, 40, 40, ${alpha})`;
+    ctx.font = `bold ${labelSize}px "Courier New", monospace`;
+    ctx.fillStyle = `rgba(200, 40, 40, ${alpha})`;
     ctx.fillText(`CASE #${c.caseNumber}`, cx, cy);
-    cy += 14;
-    ctx.font = '9px "Courier New", monospace';
-    ctx.fillStyle = `rgba(140, 40, 40, ${0.8 * alpha})`;
+    cy += labelSize + 5;
+
+    // Classification
+    ctx.font = `${smallSize}px "Courier New", monospace`;
+    ctx.fillStyle = `rgba(160, 40, 40, ${0.9 * alpha})`;
     ctx.fillText(c.classification, cx, cy);
-    cy += 25;
+    cy += 28;
 
-    // Victim name — handwritten style (larger, darker)
-    ctx.font = 'bold 22px Georgia, serif';
-    ctx.fillStyle = `rgba(30, 25, 20, ${alpha})`;
+    // Victim name — big and bold
+    ctx.font = `bold ${headingSize}px Georgia, serif`;
+    ctx.fillStyle = `rgba(20, 15, 10, ${alpha})`;
     ctx.fillText(c.victimName, cx, cy);
-    cy += 22;
+    cy += headingSize + 5;
 
-    // Date / location — typewriter style
-    ctx.font = '11px "Courier New", monospace';
-    ctx.fillStyle = `rgba(60, 50, 40, ${0.8 * alpha})`;
+    // Date / location
+    ctx.font = `${baseFontSize}px "Courier New", monospace`;
+    ctx.fillStyle = `rgba(40, 30, 20, ${0.9 * alpha})`;
     ctx.fillText(`${c.date}  |  ${c.location}`, cx, cy);
-    cy += 25;
+    cy += 28;
 
-    // Separator line
-    ctx.strokeStyle = `rgba(60, 50, 40, ${0.2 * alpha})`;
-    ctx.lineWidth = 0.5;
+    // Separator
+    ctx.strokeStyle = `rgba(50, 40, 30, ${0.35 * alpha})`;
+    ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.lineTo(cx + maxW, cy);
     ctx.stroke();
-    cy += 18;
+    cy += 20;
 
     // Description
-    ctx.font = '12px "Courier New", monospace';
-    ctx.fillStyle = `rgba(40, 35, 28, ${0.9 * alpha})`;
-    cy = this._drawWrappedText(ctx, c.description, cx, cy, maxW, 17, `rgba(40, 35, 28, ${0.9 * alpha})`);
-    cy += 15;
+    ctx.font = `${baseFontSize}px "Courier New", monospace`;
+    const descColor = `rgba(25, 20, 15, ${0.95 * alpha})`;
+    cy = this._drawWrappedText(ctx, c.description, cx, cy, maxW, lineH, descColor);
+    cy += 20;
 
     // Known facts
     if (c.knownFacts && c.knownFacts.length > 0) {
-      ctx.font = 'bold 11px "Courier New", monospace';
-      ctx.fillStyle = `rgba(40, 35, 28, ${alpha})`;
+      ctx.font = `bold ${labelSize}px "Courier New", monospace`;
+      ctx.fillStyle = `rgba(30, 25, 18, ${alpha})`;
       ctx.fillText('KNOWN FACTS:', cx, cy);
-      cy += 16;
+      cy += lineH + 2;
 
-      ctx.font = '11px "Courier New", monospace';
-      ctx.fillStyle = `rgba(50, 45, 35, ${0.85 * alpha})`;
+      ctx.font = `${labelSize}px "Courier New", monospace`;
+      const factColor = `rgba(30, 25, 18, ${0.9 * alpha})`;
       c.knownFacts.forEach(fact => {
-        ctx.fillText(`\u2022 ${fact}`, cx + 8, cy);
-        cy += 15;
+        cy = this._drawWrappedText(ctx, `\u2022 ${fact}`, cx + 10, cy, maxW - 15, lineH, factColor);
+        cy += 4;
       });
       cy += 12;
     }
 
     // Evidence to uncover
-    ctx.font = 'bold 11px "Courier New", monospace';
-    ctx.fillStyle = `rgba(40, 35, 28, ${alpha})`;
+    ctx.font = `bold ${labelSize}px "Courier New", monospace`;
+    ctx.fillStyle = `rgba(30, 25, 18, ${alpha})`;
     ctx.fillText('EVIDENCE TO UNCOVER:', cx, cy);
-    cy += 16;
+    cy += lineH + 2;
 
     c.questions.forEach((q) => {
       const revealed = this.revealedClues.includes(q.id);
-      ctx.font = '11px "Courier New", monospace';
+      ctx.font = `${labelSize}px "Courier New", monospace`;
 
       if (revealed) {
-        // Green checkmark, handwritten-feel answer
-        ctx.fillStyle = `rgba(20, 130, 50, ${alpha})`;
-        ctx.fillText(`\u2713 ${q.label}: ${q.answer}`, cx + 8, cy);
+        const revColor = `rgba(15, 120, 40, ${alpha})`;
+        cy = this._drawWrappedText(ctx, `\u2713 ${q.label}: ${q.answer}`, cx + 10, cy, maxW - 15, lineH, revColor);
       } else {
-        // Redacted / blacked out
-        ctx.fillStyle = `rgba(50, 45, 35, ${0.5 * alpha})`;
-        ctx.fillText(`\u25A1 ${q.label}: `, cx + 8, cy);
-        // Black redaction bar
+        ctx.fillStyle = `rgba(35, 30, 22, ${0.8 * alpha})`;
+        ctx.fillText(`\u25A1 ${q.label}: `, cx + 10, cy);
         const labelW = ctx.measureText(`\u25A1 ${q.label}: `).width;
-        ctx.fillStyle = `rgba(20, 20, 20, ${0.7 * alpha})`;
-        ctx.fillRect(cx + 8 + labelW, cy - 9, 80 + Math.random() * 40, 12);
+        ctx.fillStyle = `rgba(15, 15, 15, ${0.8 * alpha})`;
+        ctx.fillRect(cx + 10 + labelW, cy - 11, 100, 15);
+        cy += lineH;
       }
-      cy += 17;
+      cy += 4;
     });
 
-    // Bottom instructions — on the folder, below the paper
-    ctx.font = '10px "Courier New", monospace';
+    // Calculate max scroll from content height
+    const contentBottom = cy - scrollOffset - paperY;
+    this.maxScrollY = Math.max(0, contentBottom - paperH + 30);
+
+    ctx.restore(); // End clipping
+
+    // Scroll indicator (if content overflows)
+    if (this.maxScrollY > 0) {
+      const scrollRatio = this.scrollY / this.maxScrollY;
+      const trackH = paperH - 20;
+      const thumbH = Math.max(30, trackH * (paperH / (paperH + this.maxScrollY)));
+      const thumbY = paperY + 10 + scrollRatio * (trackH - thumbH);
+
+      // Track
+      ctx.fillStyle = `rgba(180, 160, 120, ${0.2 * alpha})`;
+      ctx.fillRect(paperX + paperW - 6, paperY + 10, 4, trackH);
+
+      // Thumb
+      ctx.fillStyle = `rgba(140, 120, 80, ${0.5 * alpha})`;
+      ctx.fillRect(paperX + paperW - 6, thumbY, 4, thumbH);
+
+      // Scroll hint at bottom
+      if (this.scrollY < this.maxScrollY - 10) {
+        ctx.font = `${isMobile ? 12 : 10}px "Courier New", monospace`;
+        ctx.fillStyle = `rgba(100, 80, 55, ${0.6 * alpha})`;
+        ctx.textAlign = 'center';
+        ctx.fillText('\u25BC Scroll for more \u25BC', w / 2, paperY + paperH - 8);
+      }
+    }
+
+    // Bottom instructions on the folder
+    ctx.font = `${isMobile ? 11 : 10}px "Courier New", monospace`;
     ctx.fillStyle = `rgba(100, 80, 55, ${0.5 * alpha})`;
     ctx.textAlign = 'center';
-    ctx.fillText('Press [TAB] to close  |  [Q] Type or [V] Speak to the spirit', w / 2, folderY + folderH - 8);
+    ctx.fillText(isMobile ? 'Swipe to scroll' : '[TAB] Close  |  [Q] Type  |  [V] Speak', w / 2, folderY + folderH - 8);
+
+    // ── MAIN MENU BUTTON ──
+    const btnW = isMobile ? 200 : 180;
+    const btnH = isMobile ? 44 : 36;
+    const btnX = (w - btnW) / 2;
+    const btnY = folderY + folderH + 10;
+
+    ctx.fillStyle = `rgba(0, 0, 0, ${0.6 * alpha})`;
+    ctx.strokeStyle = `rgba(0, 255, 65, ${0.4 * alpha})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(btnX, btnY, btnW, btnH, 4);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.font = `bold ${isMobile ? 14 : 12}px "Courier New", monospace`;
+    ctx.fillStyle = `rgba(0, 255, 65, ${0.7 * alpha})`;
+    ctx.fillText('\u25C0 MAIN MENU', w / 2, btnY + btnH / 2 + 5);
     ctx.textAlign = 'left';
 
-    // Paper clip in top-right corner
+    this._menuBtnBounds = { x: btnX, y: btnY, w: btnW, h: btnH };
+
+    // Paper clip
     this._drawPaperClip(ctx, paperX + paperW - 25, paperY - 5, alpha);
+  }
+
+  hitTestMenuButton(px, py) {
+    if (!this._menuBtnBounds || !this.isOpen) return false;
+    const b = this._menuBtnBounds;
+    return px >= b.x && px <= b.x + b.w && py >= b.y && py <= b.y + b.h;
   }
 
   _drawPaperClip(ctx, x, y, alpha) {
@@ -324,7 +437,6 @@ export class CaseFile {
     ctx.quadraticCurveTo(x, y, x, y + 5);
     ctx.stroke();
 
-    // Inner wire
     ctx.strokeStyle = `rgba(180, 180, 190, ${0.5 * alpha})`;
     ctx.lineWidth = 1.5;
     ctx.beginPath();

@@ -40,9 +40,6 @@ export class LevelManager {
     // Load the case file (opens automatically)
     this.caseFile.loadCase(caseData);
 
-    // Start creepy music while case file is showing
-    if (this.atmosphere) this.atmosphere.startCreepyMusic();
-
     // Load questions into the question system (pass ghost voice config)
     this.questionSystem.loadQuestions(caseData.questions, caseData.ghost);
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ghost-frequency-v3';
+const CACHE_NAME = 'ghost-frequency-v4';
 const ASSETS = [
   '/',
   '/index.html',
@@ -37,7 +37,7 @@ const ASSETS = [
   '/assets/audio/menu-music.mp3',
 ];
 
-// Install — cache all app shell assets
+// Install — cache all app shell assets, skip waiting to activate immediately
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
@@ -45,19 +45,54 @@ self.addEventListener('install', (e) => {
   self.skipWaiting();
 });
 
-// Activate — clean up old caches
+// Activate — clean up old caches and take control of all clients
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-// Fetch — serve from cache, fall back to network
+// Fetch — network-first for JS/HTML (always get latest), cache-first for assets
 self.addEventListener('fetch', (e) => {
+  const url = new URL(e.request.url);
+
+  // Network-first for JS, HTML, CSS — always try to get the latest code
+  if (url.pathname.endsWith('.js') || url.pathname.endsWith('.html') ||
+      url.pathname.endsWith('.css') || url.pathname === '/') {
+    e.respondWith(
+      fetch(e.request)
+        .then((response) => {
+          // Update the cache with the fresh version
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
+          return response;
+        })
+        .catch(() => {
+          // Offline fallback — serve from cache
+          return caches.match(e.request);
+        })
+    );
+    return;
+  }
+
+  // Cache-first for media assets (audio, images, etc.)
   e.respondWith(
-    caches.match(e.request).then((cached) => cached || fetch(e.request))
+    caches.match(e.request).then((cached) => {
+      if (cached) return cached;
+      return fetch(e.request).then((response) => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
+        return response;
+      });
+    })
   );
+});
+
+// Listen for messages from the app
+self.addEventListener('message', (e) => {
+  if (e.data === 'skipWaiting') {
+    self.skipWaiting();
+  }
 });

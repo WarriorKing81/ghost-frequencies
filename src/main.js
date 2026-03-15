@@ -32,6 +32,7 @@ const screenEffects = new ScreenEffects();
 const gameState = new GameState();
 const ghostCollection = new GhostCollection();
 const caseFile = new CaseFile();
+caseFile.enableTouch(canvas);
 const lightSensor = new LightSensor();
 const cameraFeed = new CameraFeed(lightSensor);
 const faceReaction = new FaceReaction(lightSensor);
@@ -77,7 +78,6 @@ function update(dt) {
     if (atmosphere) atmosphere.update(dt);
     if (!caseFile.isOpen) {
       gameState.setPhase('playing');
-      atmosphere.stopCreepyMusic();
     }
     return;
   }
@@ -170,17 +170,11 @@ function handleMenuInput() {
   if (inputManager.wasJustPressed('Tab')) {
     if (gameState.phase === 'casefile') {
       caseFile.close();
-      atmosphere.stopCreepyMusic();
     } else if (gameState.phase === 'playing') {
       if (questionSystem.inputOpen) {
         questionSystem.closeInput();
       } else {
         caseFile.toggle();
-        if (caseFile.isOpen) {
-          atmosphere.startCreepyMusic();
-        } else {
-          atmosphere.stopCreepyMusic();
-        }
       }
     }
   }
@@ -199,11 +193,20 @@ function handleMenuInput() {
     }
   }
 
+  // Escape — return to main menu (from case file or playing)
+  if (inputManager.wasJustPressed('Escape')) {
+    if (reactionRecorder.showSharePrompt) {
+      reactionRecorder.showSharePrompt = false;
+    } else {
+      returnToMenu();
+      return;
+    }
+  }
+
   // Reaction recording share controls
   if (reactionRecorder.showSharePrompt) {
     if (inputManager.wasJustPressed('KeyS')) reactionRecorder.shareReaction();
     if (inputManager.wasJustPressed('KeyD')) reactionRecorder.downloadReaction();
-    if (inputManager.wasJustPressed('Escape')) reactionRecorder.showSharePrompt = false;
   }
 }
 
@@ -370,6 +373,31 @@ function render(alpha) {
   ]);
 }
 
+// ── RETURN TO MAIN MENU ─────────────────────────────────────────────
+function returnToMenu() {
+  // Stop all gameplay audio
+  if (atmosphere) {
+    const ctx = audioEngine.getContext();
+    atmosphere.droneGain.gain.setTargetAtTime(0, ctx.currentTime, 0.3);
+    atmosphere.subGain.gain.setTargetAtTime(0, ctx.currentTime, 0.3);
+    radioTuner.noiseGain.gain.setTargetAtTime(0.04, ctx.currentTime, 0.3);
+  }
+
+  // Close case file if open
+  if (caseFile.isOpen) caseFile.close();
+
+  // Reset threat system
+  if (threatSystem) {
+    threatSystem.scareActive = false;
+    threatSystem.failed = false;
+    threatSystem.threatLevel = 0;
+  }
+
+  // Switch to menu phase and start menu music
+  gameState.setPhase('menu');
+  startMenuMusic();
+}
+
 // ── MENU MUSIC ──────────────────────────────────────────────────────
 let menuMusicSource = null;
 let menuMusicGain = null;
@@ -504,6 +532,19 @@ function startGame() {
       }
     });
   }
+
+  // Touch/click handler for case file menu button
+  canvas.addEventListener('click', (e) => {
+    if (gameState.phase !== 'casefile') return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const px = (e.clientX - rect.left) * scaleX;
+    const py = (e.clientY - rect.top) * scaleY;
+    if (caseFile.hitTestMenuButton(px, py)) {
+      returnToMenu();
+    }
+  });
 
   // Show main menu with background music
   gameState.setPhase('menu');
