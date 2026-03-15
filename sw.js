@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ghost-frequency-v1';
+const CACHE_NAME = 'ghost-frequency-v2';
 const ASSETS = [
   '/',
   '/index.html',
@@ -32,6 +32,8 @@ const ASSETS = [
   '/src/data/cases.js',
   '/src/data/ghosts.js',
   '/src/camera/LightSensor.js',
+  '/src/camera/FaceReaction.js',
+  '/src/audio/GhostVoice.js',
   '/assets/audio/menu-music.mp3',
 ];
 
