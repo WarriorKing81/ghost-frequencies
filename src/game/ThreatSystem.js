@@ -81,7 +81,8 @@ export class ThreatSystem {
       if (this.failTimer >= this.failDuration) {
         // Emit fail event — LevelManager will handle restart
         eventBus.emit('threat:missionFailed', {});
-        this.failed = false; // prevent re-emitting
+        // Full reset so the scare doesn't re-trigger during the transition
+        this.reset();
       }
       return;
     }
