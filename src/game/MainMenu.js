@@ -49,6 +49,10 @@ export class MainMenu {
       { name: 'TikTok', icon: 'tt', color: '#00f2ea' },
     ];
 
+    // Touch/click support — store hit regions for menu items
+    this.hitRegions = []; // [{ x, y, w, h, action }]
+    this.pendingTapAction = null; // set by tap handler, consumed by handleInput
+
     // Animation state
     this.time = 0;
     this.titleGlow = 0;
@@ -138,8 +142,54 @@ export class MainMenu {
     localStorage.setItem('ghost-frequency-settings', JSON.stringify(this.settings));
   }
 
+  /**
+   * Call once after canvas is available to enable touch/click on menu items.
+   */
+  enableTouch(canvas) {
+    const handler = (e) => {
+      if (!this.active) return;
+
+      let clientX, clientY;
+      if (e.touches) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+
+      // Canvas might be scaled by devicePixelRatio but hit regions use CSS coords
+      const rect = canvas.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+
+      for (const region of this.hitRegions) {
+        if (x >= region.x && x <= region.x + region.w &&
+            y >= region.y && y <= region.y + region.h) {
+          this.pendingTapAction = region.action;
+          break;
+        }
+      }
+    };
+
+    canvas.addEventListener('click', handler);
+    canvas.addEventListener('touchstart', (e) => {
+      // Only handle taps during menu phase
+      if (!this.active) return;
+      e.preventDefault();
+      handler(e);
+    }, { passive: false });
+  }
+
   handleInput(inputManager) {
     if (!this.active) return null;
+
+    // Process tap actions from touch/click
+    if (this.pendingTapAction) {
+      const action = this.pendingTapAction;
+      this.pendingTapAction = null;
+      return this._executeTapAction(action);
+    }
 
     // Cases sub-menu
     if (this.subMenu === 'cases') {
@@ -263,6 +313,33 @@ export class MainMenu {
     }
   }
 
+  _executeTapAction(action) {
+    if (action.type === 'menuItem') {
+      this.selectedIndex = action.index;
+      return this._selectItem();
+    }
+    if (action.type === 'caseItem') {
+      this.caseSelectedIndex = action.index;
+      this.active = false;
+      return { action: 'startLevel', level: action.index };
+    }
+    if (action.type === 'settingsToggle') {
+      this.settingsIndex = action.index;
+      if (action.index === 3) {
+        this.settings.camera = !this.settings.camera;
+        this._saveSettings();
+      } else if (action.index === 4) {
+        this.subMenu = null;
+      }
+      return null;
+    }
+    if (action.type === 'back') {
+      this.subMenu = null;
+      return null;
+    }
+    return null;
+  }
+
   update(dt) {
     this.time += dt;
     this.titleGlow = 0.6 + Math.sin(this.time * 1.5) * 0.4;
@@ -271,14 +348,19 @@ export class MainMenu {
   draw(ctx, w, h) {
     if (!this.active) return;
 
-    // Moonlit forest sky — bright enough for black silhouettes to pop
-    const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
-    skyGrad.addColorStop(0, '#2d5040');
-    skyGrad.addColorStop(0.2, '#1f3a2c');
-    skyGrad.addColorStop(0.5, '#132a1c');
-    skyGrad.addColorStop(0.8, '#0a1a10');
-    skyGrad.addColorStop(1, '#050c06');
-    ctx.fillStyle = skyGrad;
+    // Night sky base
+    ctx.fillStyle = '#060d08';
+    ctx.fillRect(0, 0, w, h);
+
+    // Moon glow — bright spot behind the trees for silhouette contrast
+    const moonX = w * 0.5;
+    const moonY = h * 0.15;
+    const moonGlow = ctx.createRadialGradient(moonX, moonY, 0, moonX, moonY, h * 0.55);
+    moonGlow.addColorStop(0, 'rgba(60, 120, 80, 0.5)');
+    moonGlow.addColorStop(0.15, 'rgba(40, 90, 55, 0.35)');
+    moonGlow.addColorStop(0.4, 'rgba(20, 50, 30, 0.2)');
+    moonGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = moonGlow;
     ctx.fillRect(0, 0, w, h);
 
     // Static noise background
@@ -334,8 +416,8 @@ export class MainMenu {
     ctx.save();
     for (const fig of this.silhouettes) {
       const flicker = Math.sin(this.time * fig.flickerRate) * 0.5 + 0.5;
-      const alpha = fig.alpha * (0.4 + flicker * 0.6);
-      if (alpha < 0.01) continue;
+      const alpha = (fig.alpha + 0.1) * (0.5 + flicker * 0.5);
+      if (alpha < 0.02) continue;
 
       const fx = fig.x * w + Math.sin(this.time * fig.driftSpeed + fig.drift) * 20;
       const fy = fig.y * h;
@@ -460,6 +542,9 @@ export class MainMenu {
   _drawMainMenu(ctx, w, h) {
     const cx = w / 2;
 
+    // Clear hit regions for this frame
+    this.hitRegions = [];
+
     // Title
     ctx.save();
     ctx.textAlign = 'center';
@@ -490,6 +575,12 @@ export class MainMenu {
     ctx.font = `${Math.min(22, w * 0.04)}px "Courier New", monospace`;
 
     this.items.forEach((item, i) => {
+      const y = menuStartY + i * itemSpacing;
+      // Register tap region for this menu item
+      this.hitRegions.push({
+        x: cx - 150, y: y - 22, w: 300, h: 44,
+        action: { type: 'menuItem', index: i },
+      });
       const y = menuStartY + i * itemSpacing;
       const isSelected = i === this.selectedIndex;
       const isContinueDisabled = item === 'CONTINUE' && this.savedLevel === 0 && this.ghostCollection.count() === 0;
@@ -560,8 +651,15 @@ export class MainMenu {
 
   _drawCasesMenu(ctx, w, h) {
     const cx = w / 2;
+    this.hitRegions = [];
     ctx.save();
     ctx.textAlign = 'center';
+
+    // Back button region at bottom
+    this.hitRegions.push({
+      x: cx - 100, y: h - 45, w: 200, h: 35,
+      action: { type: 'back' },
+    });
 
     // Title
     ctx.font = `bold ${Math.min(28, w * 0.045)}px "Courier New", monospace`;
@@ -580,6 +678,12 @@ export class MainMenu {
       const y = startY + i * (cardH + 10);
       const isSelected = i === this.caseSelectedIndex;
       const isSolved = this.ghostCollection.has(c.ghost.id);
+
+      // Register tap region for this case card
+      this.hitRegions.push({
+        x: cardX, y: y, w: cardW, h: cardH,
+        action: { type: 'caseItem', index: i },
+      });
 
       // Card background
       ctx.fillStyle = isSelected
@@ -658,6 +762,7 @@ export class MainMenu {
 
   _drawSettingsMenu(ctx, w, h) {
     const cx = w / 2;
+    this.hitRegions = [];
     ctx.save();
     ctx.textAlign = 'center';
 
@@ -673,6 +778,12 @@ export class MainMenu {
     ctx.font = `${Math.min(16, w * 0.03)}px "Courier New", monospace`;
 
     this.settingsItems.forEach((item, i) => {
+      const y = startY + i * spacing;
+      // Register tap region for each settings item
+      this.hitRegions.push({
+        x: cx - 160, y: y - 18, w: 320, h: 36,
+        action: { type: 'settingsToggle', index: i },
+      });
       const y = startY + i * spacing;
       const isSelected = i === this.settingsIndex;
 

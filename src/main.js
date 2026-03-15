@@ -36,6 +36,7 @@ const lightSensor = new LightSensor();
 const cameraFeed = new CameraFeed(lightSensor);
 const faceReaction = new FaceReaction(lightSensor);
 const mainMenu = new MainMenu(ghostCollection);
+mainMenu.enableTouch(canvas);
 
 // Systems initialized after audio context (on user tap)
 let inputManager = null;
