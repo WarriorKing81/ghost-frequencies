@@ -393,8 +393,9 @@ export class QuestionSystem {
         this.answerLocked = true;
         this.caseFile.revealClue(this.activeQuestion.id);
 
-        // Show the ghost's answer
-        this.whisperText = this.activeQuestion.answer;
+        // Don't show the ghost's answer as text — the player HEARS it through the static.
+        // The answer text is recorded in the case file for later review only.
+        this.whisperText = 'CLUE CAPTURED — check your case file';
         this.whisperAlpha = 1.0;
         this.answerRevealAlpha = 1.0;
 
@@ -441,7 +442,7 @@ export class QuestionSystem {
       ctx.fillStyle = 'rgba(0, 255, 65, 0.35)';
       const voiceHint = this.voiceSupported ? '  [V] Speak' : '';
       ctx.fillText(
-        `[Q] Type a question to the spirit${voiceHint}  —  ${this.getUnansweredCount()} answers remain`,
+        `[Q] Ask the spirit a question${voiceHint}  —  ${this.getUnansweredCount()} clues remain`,
         w / 2, h - 100
       );
       ctx.restore();
@@ -492,11 +493,11 @@ export class QuestionSystem {
       ctx.shadowColor = '#00ff41';
 
       if (proximity < 0.3) {
-        ctx.fillText('The spirit stirs... tune the radio to find the answer...', w / 2, h / 3 + 30);
+        ctx.fillText('Something stirs in the static... listen carefully...', w / 2, h / 3 + 30);
       } else if (proximity < 0.7) {
-        ctx.fillText('A voice is forming in the static... keep tuning...', w / 2, h / 3 + 30);
+        ctx.fillText('A voice... can you hear it? Keep searching...', w / 2, h / 3 + 30);
       } else {
-        ctx.fillText('Hold steady... the spirit is speaking...', w / 2, h / 3 + 30);
+        ctx.fillText('Hold steady... listen to the voice...', w / 2, h / 3 + 30);
       }
 
       // Progress ring

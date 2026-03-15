@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ghost-frequency-v12';
+const CACHE_NAME = 'ghost-frequency-v13';
 const ASSETS = [
   '/',
   '/index.html',
