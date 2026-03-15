@@ -138,7 +138,7 @@ export class RadioTuner {
     const t = this.ctx.currentTime;
 
     // Static fades as you get closer (baseNoiseLevel is set by main.js for each phase)
-    const baseNoise = this._baseNoiseLevel || 0.3;
+    const baseNoise = this._baseNoiseLevel || 0.15;
     this.noiseGain.gain.setTargetAtTime(baseNoise * (1 - this.proximity * 0.9), t, 0.05);
 
     // Signal gets louder

@@ -54,6 +54,7 @@ export class InputManager {
     }, { passive: false });
 
     // Touch drag (for radio tuning — only active during gameplay)
+    // The ENTIRE screen is the tuning surface — swipe left/right to scan frequencies
     this.enabled = false; // set to true when gameplay starts
     canvas.addEventListener('touchstart', (e) => {
       if (!this.enabled) return;
@@ -65,7 +66,8 @@ export class InputManager {
       e.preventDefault();
       if (this.touchStartX !== null) {
         const x = e.touches[0].clientX;
-        this.dialDelta += (x - this.touchStartX) * 0.015;
+        // Higher sensitivity — full screen width ≈ scan the whole band
+        this.dialDelta += (x - this.touchStartX) * 0.04;
         this.touchStartX = x;
       }
     }, { passive: false });

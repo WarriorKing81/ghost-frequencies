@@ -98,7 +98,7 @@ function update(dt) {
       stopCasefileAmbient();
       // Restore radio static to gameplay level
       const ctx = audioEngine.getContext();
-      radioTuner.noiseGain.gain.setTargetAtTime(0.3, ctx.currentTime, 0.3); radioTuner._baseNoiseLevel = 0.3;
+      radioTuner.noiseGain.gain.setTargetAtTime(0.15, ctx.currentTime, 0.3); radioTuner._baseNoiseLevel = 0.15;
       gameState.setPhase('playing');
     }
     return;
@@ -164,7 +164,7 @@ function handleMenuAction(action) {
 
   // Restore radio static + atmosphere drones for gameplay
   const ctx = audioEngine.getContext();
-  radioTuner.noiseGain.gain.setTargetAtTime(0.3, ctx.currentTime, 0.3); radioTuner._baseNoiseLevel = 0.3;
+  radioTuner.noiseGain.gain.setTargetAtTime(0.15, ctx.currentTime, 0.3); radioTuner._baseNoiseLevel = 0.15;
   atmosphere.droneGain.gain.setTargetAtTime(0.12, ctx.currentTime, 0.5);
   atmosphere.subGain.gain.setTargetAtTime(0.08, ctx.currentTime, 0.5);
 
@@ -199,7 +199,7 @@ function handleMenuInput() {
       stopCasefileAmbient();
       // Restore radio static to gameplay level
       const ctx = audioEngine.getContext();
-      radioTuner.noiseGain.gain.setTargetAtTime(0.3, ctx.currentTime, 0.3); radioTuner._baseNoiseLevel = 0.3;
+      radioTuner.noiseGain.gain.setTargetAtTime(0.15, ctx.currentTime, 0.3); radioTuner._baseNoiseLevel = 0.15;
     } else if (gameState.phase === 'playing') {
       if (questionSystem.inputOpen) {
         questionSystem.closeInput();
@@ -214,7 +214,7 @@ function handleMenuInput() {
           stopCasefileAmbient();
           // Restore radio static
           const ctx = audioEngine.getContext();
-          radioTuner.noiseGain.gain.setTargetAtTime(0.3, ctx.currentTime, 0.3); radioTuner._baseNoiseLevel = 0.3;
+          radioTuner.noiseGain.gain.setTargetAtTime(0.15, ctx.currentTime, 0.3); radioTuner._baseNoiseLevel = 0.15;
         }
       }
     }
@@ -362,15 +362,7 @@ function render(alpha) {
       ctx.restore();
     },
 
-    // Controls hint
-    (ctx, w, h) => {
-      if (gameState.phase !== 'playing' && gameState.phase !== 'casefile') return;
-      if (caseFileUp) return; // case file has its own instructions
-      ctx.font = '10px "Courier New", monospace';
-      ctx.fillStyle = 'rgba(100, 100, 100, 0.5)';
-      ctx.textAlign = 'center';
-      ctx.fillText('[Q] Type Question  [V] Speak  [TAB] Case File  [LEFT/RIGHT] Tune', w / 2, h - 12);
-    },
+    // (Controls hint removed — mobile uses buttons, desktop uses keyboard)
 
     // Threat system visuals (hidden during case file)
     (ctx, w, h) => {
@@ -718,7 +710,7 @@ function startGame() {
       caseFile.close();
       stopCasefileAmbient();
       const ctx = audioEngine.getContext();
-      radioTuner.noiseGain.gain.setTargetAtTime(0.3, ctx.currentTime, 0.3); radioTuner._baseNoiseLevel = 0.3;
+      radioTuner.noiseGain.gain.setTargetAtTime(0.15, ctx.currentTime, 0.3); radioTuner._baseNoiseLevel = 0.15;
     }
   });
 
@@ -731,7 +723,7 @@ function startGame() {
       caseFile.close();
       stopCasefileAmbient();
       const ctx = audioEngine.getContext();
-      radioTuner.noiseGain.gain.setTargetAtTime(0.3, ctx.currentTime, 0.3); radioTuner._baseNoiseLevel = 0.3;
+      radioTuner.noiseGain.gain.setTargetAtTime(0.15, ctx.currentTime, 0.3); radioTuner._baseNoiseLevel = 0.15;
     }
     if (caseFile._pendingMenu) {
       caseFile._pendingMenu = false;
