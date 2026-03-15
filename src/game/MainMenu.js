@@ -581,7 +581,6 @@ export class MainMenu {
         x: cx - 150, y: y - 22, w: 300, h: 44,
         action: { type: 'menuItem', index: i },
       });
-      const y = menuStartY + i * itemSpacing;
       const isSelected = i === this.selectedIndex;
       const isContinueDisabled = item === 'CONTINUE' && this.savedLevel === 0 && this.ghostCollection.count() === 0;
       const isInstall = item === 'INSTALL APP';
