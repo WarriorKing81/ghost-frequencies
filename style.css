@@ -54,7 +54,53 @@ html, body {
 .warning-content .sub {
   font-size: 0.85rem;
   opacity: 0.5;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Pre-game warning rules */
+.warning-rules {
+  max-width: 400px;
+  margin: 0 auto 1.5rem;
+  padding: 1rem 1.2rem;
+  border: 1px solid rgba(255, 50, 50, 0.3);
+  background: rgba(255, 0, 0, 0.05);
+  text-align: left;
+}
+
+.warning-rules .rule-header {
+  color: #ff3333;
+  font-size: 0.85rem;
+  font-weight: bold;
+  letter-spacing: 0.15em;
+  text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+  margin-bottom: 0.6rem;
+  opacity: 1;
+}
+
+.warning-rules .rule {
+  color: #ff6644;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  margin-bottom: 0.3rem;
+  opacity: 0.9;
+  padding-left: 0.8rem;
+  text-indent: -0.8rem;
+}
+
+.warning-rules .rule::before {
+  content: "// ";
+  color: rgba(255, 50, 50, 0.4);
+}
+
+.warning-rules .rule-small {
+  color: rgba(180, 180, 180, 0.5);
+  font-size: 0.65rem;
+  line-height: 1.4;
+  margin-top: 0.8rem;
+  margin-bottom: 0;
+  opacity: 0.7;
+  padding-left: 0;
+  text-indent: 0;
 }
 
 #start-btn {

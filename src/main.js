@@ -20,6 +20,7 @@ import { ReactionRecorder } from './game/ReactionRecorder.js';
 import { MainMenu } from './game/MainMenu.js';
 import { LightSensor } from './camera/LightSensor.js';
 import { FaceReaction } from './camera/FaceReaction.js';
+import { MicMonitor } from './audio/MicMonitor.js';
 
 // Systems (constructed immediately)
 const canvas = document.getElementById('game-canvas');
@@ -47,6 +48,7 @@ let questionSystem = null;
 let threatSystem = null;
 let reactionRecorder = null;
 let levelManager = null;
+let micMonitor = null;
 
 // Light penalty
 let lightPenalty = 0;
@@ -96,16 +98,20 @@ function update(dt) {
       stopCasefileAmbient();
       // Restore radio static to gameplay level
       const ctx = audioEngine.getContext();
-      radioTuner.noiseGain.gain.setTargetAtTime(0.3, ctx.currentTime, 0.3);
+      radioTuner.noiseGain.gain.setTargetAtTime(0.3, ctx.currentTime, 0.3); radioTuner._baseNoiseLevel = 0.3;
       gameState.setPhase('playing');
     }
     return;
   }
 
+  // Mic monitor — always updating during gameplay
+  if (micMonitor) micMonitor.update(dt);
+  const micNoise = micMonitor ? micMonitor.getNoiseLevel() : 0;
+
   // Threat system — update even during scare/fail (it manages its own state)
   const proximity = radioTuner.getProximity();
   const isListening = questionSystem.isListening();
-  threatSystem.update(dt, proximity, isListening);
+  threatSystem.update(dt, proximity, isListening, micNoise);
 
   // During scare or fail screen, freeze all other game systems
   if (threatSystem.scareActive || threatSystem.failed) {
@@ -158,7 +164,7 @@ function handleMenuAction(action) {
 
   // Restore radio static + atmosphere drones for gameplay
   const ctx = audioEngine.getContext();
-  radioTuner.noiseGain.gain.setTargetAtTime(0.3, ctx.currentTime, 0.3);
+  radioTuner.noiseGain.gain.setTargetAtTime(0.3, ctx.currentTime, 0.3); radioTuner._baseNoiseLevel = 0.3;
   atmosphere.droneGain.gain.setTargetAtTime(0.12, ctx.currentTime, 0.5);
   atmosphere.subGain.gain.setTargetAtTime(0.08, ctx.currentTime, 0.5);
 
@@ -193,7 +199,7 @@ function handleMenuInput() {
       stopCasefileAmbient();
       // Restore radio static to gameplay level
       const ctx = audioEngine.getContext();
-      radioTuner.noiseGain.gain.setTargetAtTime(0.3, ctx.currentTime, 0.3);
+      radioTuner.noiseGain.gain.setTargetAtTime(0.3, ctx.currentTime, 0.3); radioTuner._baseNoiseLevel = 0.3;
     } else if (gameState.phase === 'playing') {
       if (questionSystem.inputOpen) {
         questionSystem.closeInput();
@@ -203,12 +209,12 @@ function handleMenuInput() {
           startCasefileAmbient();
           // Turn static down to ~50% while case file is open
           const ctx = audioEngine.getContext();
-          radioTuner.noiseGain.gain.setTargetAtTime(0.1, ctx.currentTime, 0.3);
+          radioTuner.noiseGain.gain.setTargetAtTime(0.1, ctx.currentTime, 0.3); radioTuner._baseNoiseLevel = 0.1;
         } else {
           stopCasefileAmbient();
           // Restore radio static
           const ctx = audioEngine.getContext();
-          radioTuner.noiseGain.gain.setTargetAtTime(0.3, ctx.currentTime, 0.3);
+          radioTuner.noiseGain.gain.setTargetAtTime(0.3, ctx.currentTime, 0.3); radioTuner._baseNoiseLevel = 0.3;
         }
       }
     }
@@ -301,6 +307,59 @@ function render(alpha) {
         ctx.textAlign = 'left';
         ctx.fillText(`GHOSTS: ${count}`, 20, 30);
       }
+    },
+
+    // Mic noise level indicator — shows player their volume
+    (ctx, w, h) => {
+      if (caseFileUp || !micMonitor || !micMonitor.active) return;
+      const level = micMonitor.getNoiseLevel();
+      if (level < 0.01) return; // no signal, don't draw
+
+      const barW = 4;
+      const barMaxH = 60;
+      const x = w - 20;
+      const y = 30;
+      const barH = level * barMaxH * 3; // scale up for visibility
+
+      // Color based on threat level
+      let color;
+      if (level > 0.55) {
+        color = '#ff0000'; // screaming — danger!
+      } else if (level > 0.25) {
+        color = '#ff6600'; // loud — ghost can hear
+      } else {
+        color = '#00ff41'; // safe — quiet
+      }
+
+      ctx.save();
+      // Background track
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+      ctx.fillRect(x - 1, y, barW + 2, barMaxH);
+
+      // Level bar (grows upward)
+      ctx.fillStyle = color;
+      ctx.shadowBlur = 6;
+      ctx.shadowColor = color;
+      const drawH = Math.min(barH, barMaxH);
+      ctx.fillRect(x, y + barMaxH - drawH, barW, drawH);
+
+      // "MIC" label
+      ctx.font = '8px "Courier New", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.shadowBlur = 0;
+      ctx.fillText('MIC', x + barW / 2, y + barMaxH + 12);
+
+      // Warning text if loud
+      if (level > 0.25) {
+        const pulse = Math.sin(Date.now() * 0.006) * 0.3 + 0.7;
+        ctx.font = '10px "Courier New", monospace';
+        ctx.fillStyle = `rgba(255, 80, 0, ${pulse})`;
+        ctx.textAlign = 'right';
+        ctx.fillText('SHHHH!', x - 8, y + barMaxH / 2);
+      }
+
+      ctx.restore();
     },
 
     // Controls hint
@@ -466,8 +525,12 @@ function returnToMenu() {
     const ctx = audioEngine.getContext();
     atmosphere.droneGain.gain.setTargetAtTime(0, ctx.currentTime, 0.3);
     atmosphere.subGain.gain.setTargetAtTime(0, ctx.currentTime, 0.3);
-    radioTuner.noiseGain.gain.setTargetAtTime(0.1, ctx.currentTime, 0.3);
+    radioTuner.noiseGain.gain.setTargetAtTime(0.1, ctx.currentTime, 0.3); radioTuner._baseNoiseLevel = 0.1;
   }
+
+  // Stop mic monitor + continuous voice recognition
+  if (micMonitor) micMonitor.stop();
+  if (questionSystem) questionSystem.stopContinuousListening();
 
   // Close case file if open
   if (caseFile.isOpen) caseFile.close();
@@ -548,6 +611,7 @@ function startGame() {
 
   // Quiet radio static on main menu — subtle background texture, not overpowering
   radioTuner.noiseGain.gain.value = 0.1;
+  radioTuner._baseNoiseLevel = 0.1;
 
   atmosphere = new Atmosphere(audioEngine);
   atmosphere.init();
@@ -604,13 +668,26 @@ function startGame() {
     }
   });
 
+  // Init microphone monitor (always-on noise detection during gameplay)
+  micMonitor = new MicMonitor(audioEngine);
+
   // Save progress when a level loads
   eventBus.on('level:loaded', ({ level }) => {
     mainMenu.saveProgress(level);
     // Case file auto-opens when a level loads — play ambient audio, quiet the static
     startCasefileAmbient();
     const ctx = audioEngine.getContext();
-    radioTuner.noiseGain.gain.setTargetAtTime(0.1, ctx.currentTime, 0.3);
+    radioTuner.noiseGain.gain.setTargetAtTime(0.1, ctx.currentTime, 0.3); radioTuner._baseNoiseLevel = 0.1;
+
+    // Start always-on mic + voice recognition for this level
+    if (micMonitor && !micMonitor.active) {
+      micMonitor.init().then(ok => {
+        if (ok) console.log('MicMonitor active — stay quiet or the ghost will hear you');
+      });
+    }
+    if (questionSystem) {
+      questionSystem.startContinuousListening();
+    }
   });
 
   levelManager = new LevelManager(
@@ -641,7 +718,7 @@ function startGame() {
       caseFile.close();
       stopCasefileAmbient();
       const ctx = audioEngine.getContext();
-      radioTuner.noiseGain.gain.setTargetAtTime(0.3, ctx.currentTime, 0.3);
+      radioTuner.noiseGain.gain.setTargetAtTime(0.3, ctx.currentTime, 0.3); radioTuner._baseNoiseLevel = 0.3;
     }
   });
 
@@ -654,7 +731,7 @@ function startGame() {
       caseFile.close();
       stopCasefileAmbient();
       const ctx = audioEngine.getContext();
-      radioTuner.noiseGain.gain.setTargetAtTime(0.3, ctx.currentTime, 0.3);
+      radioTuner.noiseGain.gain.setTargetAtTime(0.3, ctx.currentTime, 0.3); radioTuner._baseNoiseLevel = 0.3;
     }
     if (caseFile._pendingMenu) {
       caseFile._pendingMenu = false;
@@ -677,7 +754,7 @@ function startGame() {
       if (caseFile.isOpen) {
         startCasefileAmbient();
         const ctx = audioEngine.getContext();
-        radioTuner.noiseGain.gain.setTargetAtTime(0.1, ctx.currentTime, 0.3);
+        radioTuner.noiseGain.gain.setTargetAtTime(0.1, ctx.currentTime, 0.3); radioTuner._baseNoiseLevel = 0.1;
         gameState.setPhase('casefile');
       }
     });

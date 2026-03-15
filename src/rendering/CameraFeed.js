@@ -7,7 +7,7 @@ export class CameraFeed {
     this.lightSensor = lightSensor;
     this.visible = true;
 
-    // PiP dimensions and position (bottom-left corner)
+    // PiP dimensions and position (top-left corner)
     this.pipWidth = 120;
     this.pipHeight = 90;
     this.margin = 15;
@@ -29,7 +29,7 @@ export class CameraFeed {
     if (!video || video.readyState < 2) return;
 
     const x = this.margin;
-    const y = h - this.pipHeight - this.margin - 60; // above the dial
+    const y = this.margin + 20; // top-left corner, below ghost count
 
     ctx.save();
 

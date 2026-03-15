@@ -74,7 +74,7 @@ export class ThreatSystem {
     this.entityAlpha = 0;
   }
 
-  update(dt, proximity, isListening) {
+  update(dt, proximity, isListening, micNoiseLevel = 0) {
     // Don't update during fail screen
     if (this.failed) {
       this.failTimer += dt;
@@ -107,6 +107,18 @@ export class ThreatSystem {
       this.staticTimer = Math.max(0, this.staticTimer - dt * 2);
     }
 
+    // ── MIC NOISE — the ghost can hear the player ────────────
+    // Loud noises accelerate the static timer (ghost gets agitated)
+    if (micNoiseLevel > 0.25) {
+      // Loud — ghost hears you, threat builds faster
+      const loudBoost = (micNoiseLevel - 0.25) * 8; // 0-6x multiplier
+      this.staticTimer += dt * loudBoost;
+    }
+    if (micNoiseLevel > 0.55) {
+      // Screaming — massive threat spike, ghost attacks faster
+      this.staticTimer += dt * 12;
+    }
+
     // Calculate threat level from how close to threshold
     if (this.staticThreshold > 0) {
       this.threatLevel = Math.min(1, this.staticTimer / this.staticThreshold);
@@ -127,8 +139,8 @@ export class ThreatSystem {
       this._triggerScare();
     }
 
-    // Ambient distortion based on threat
-    this.distortionAmount = this.threatLevel * 0.3;
+    // Ambient distortion based on threat + mic noise
+    this.distortionAmount = this.threatLevel * 0.3 + micNoiseLevel * 0.15;
   }
 
   // ── SCARE SEQUENCE ───────────────────────────────────────────

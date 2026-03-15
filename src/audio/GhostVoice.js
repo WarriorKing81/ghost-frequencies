@@ -10,6 +10,7 @@
  *  - 'evp'         (Margarete)      — faint syllable-like AM pulses, barely there
  *  - 'poltergeist' (Bill Wilkins)   — deep gravelly growl with knocking rhythm
  *  - 'spiricom'    (Dr. Mueller)    — mechanical buzzing drone, layered tones
+ *  - 'recorded'                     — plays a recorded MP3/WAV file with ghost effects
  *  - 'default'                      — basic sine wave
  */
 export class GhostVoice {
@@ -22,11 +23,12 @@ export class GhostVoice {
 
   /**
    * Build the voice signal chain and connect to the destination.
-   * @param {string} voiceType - one of the voice types above
+   * @param {string} voiceType - one of the voice types above, or 'recorded'
    * @param {number} baseTone - base frequency in Hz from ghost data
    * @param {GainNode} destination - the tuner's signal gain node
+   * @param {AudioBuffer} [audioBuffer] - decoded audio buffer for 'recorded' type
    */
-  build(voiceType, baseTone, destination) {
+  build(voiceType, baseTone, destination, audioBuffer) {
     this.stop(); // clean up any previous voice
 
     switch (voiceType) {
@@ -41,6 +43,13 @@ export class GhostVoice {
         break;
       case 'spiricom':
         this._buildSpiricom(baseTone, destination);
+        break;
+      case 'recorded':
+        if (audioBuffer) {
+          this._buildRecorded(audioBuffer, destination);
+        } else {
+          this._buildDefault(baseTone, destination);
+        }
         break;
       default:
         this._buildDefault(baseTone, destination);
@@ -315,6 +324,69 @@ export class GhostVoice {
     speechLfo.start(now);
 
     this.nodes.push(voiceGain, ringOsc, ringGain, speechLfo, speechGain, bpf);
+    this.output = voiceGain;
+  }
+
+  // ── RECORDED VOICE — Plays back an MP3/WAV through ghost effects ──
+
+  _buildRecorded(audioBuffer, dest) {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    // Source — plays the recorded ghost voice on loop
+    const source = ctx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.loop = true;
+    source.playbackRate.value = 1.0;
+
+    // Subtle pitch drift — makes it feel unstable, otherworldly
+    const pitchLfo = ctx.createOscillator();
+    pitchLfo.type = 'sine';
+    pitchLfo.frequency.value = 0.3; // very slow drift
+    const pitchGain = ctx.createGain();
+    pitchGain.gain.value = 0.02; // ±2% speed wobble
+    pitchLfo.connect(pitchGain);
+    pitchGain.connect(source.playbackRate);
+    pitchLfo.start(now);
+
+    // Bandpass — gives it the "coming through a radio" quality
+    const bpf = ctx.createBiquadFilter();
+    bpf.type = 'bandpass';
+    bpf.frequency.value = 900;
+    bpf.Q.value = 1.5;
+
+    // Light distortion — crackly, degraded signal
+    const distortion = ctx.createWaveShaper();
+    const curve = new Float32Array(512);
+    for (let i = 0; i < 512; i++) {
+      const x = (i * 2) / 512 - 1;
+      curve[i] = Math.tanh(x * 2.5);
+    }
+    distortion.curve = curve;
+    distortion.oversample = '2x';
+
+    // Tremolo — amplitude wobble like a weak signal fading in/out
+    const tremLfo = ctx.createOscillator();
+    tremLfo.type = 'sine';
+    tremLfo.frequency.value = 1.5;
+    const tremGain = ctx.createGain();
+    tremGain.gain.value = 0.25;
+    tremLfo.connect(tremGain);
+
+    const voiceGain = ctx.createGain();
+    voiceGain.gain.value = 0.6;
+    tremGain.connect(voiceGain.gain);
+
+    // Signal chain: source → bpf → distortion → voiceGain → dest
+    source.connect(bpf);
+    bpf.connect(distortion);
+    distortion.connect(voiceGain);
+    voiceGain.connect(dest);
+
+    source.start(now);
+    tremLfo.start(now);
+
+    this.nodes.push(source, pitchLfo, pitchGain, bpf, distortion, tremLfo, tremGain, voiceGain);
     this.output = voiceGain;
   }
 

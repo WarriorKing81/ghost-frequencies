@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ghost-frequency-v8';
+const CACHE_NAME = 'ghost-frequency-v10';
 const ASSETS = [
   '/',
   '/index.html',
@@ -12,6 +12,7 @@ const ASSETS = [
   '/src/audio/RadioTuner.js',
   '/src/audio/SoundBank.js',
   '/src/audio/Atmosphere.js',
+  '/src/audio/MicMonitor.js',
   '/src/rendering/Renderer.js',
   '/src/rendering/WaveformDrawer.js',
   '/src/rendering/UIOverlay.js',
@@ -36,6 +37,7 @@ const ASSETS = [
   '/src/audio/GhostVoice.js',
   '/assets/audio/menu-music.mp3',
   '/assets/audio/casefile-ambient.mp3',
+  '/assets/audio/ghosts/harold-echo.mp3',
 ];
 
 // Install — cache all app shell assets, skip waiting to activate immediately

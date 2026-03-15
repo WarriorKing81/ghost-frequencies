@@ -73,7 +73,7 @@ export class RadioTuner {
 
   /**
    * Set the station to tune to.
-   * @param {object|null} config - { targetFrequency, bandwidth, voiceType, voiceTone }
+   * @param {object|null} config - { targetFrequency, bandwidth, voiceType, voiceTone, audioBuffer }
    */
   setStation(config) {
     this.station = config;
@@ -95,7 +95,13 @@ export class RadioTuner {
 
     // Update the bandpass filter center
     if (this.signalFilter) {
-      this.signalFilter.frequency.setTargetAtTime(baseTone, this.ctx.currentTime, 0.01);
+      // For recorded voices, widen the filter so the full audio comes through
+      if (config.voiceType === 'recorded') {
+        this.signalFilter.frequency.setTargetAtTime(1200, this.ctx.currentTime, 0.01);
+        this.signalFilter.Q.setTargetAtTime(0.3, this.ctx.currentTime, 0.01);
+      } else {
+        this.signalFilter.frequency.setTargetAtTime(baseTone, this.ctx.currentTime, 0.01);
+      }
     }
 
     // Build the ghost's voice and connect it to the signal filter
@@ -103,7 +109,8 @@ export class RadioTuner {
       this.ghostVoice.build(
         config.voiceType || 'default',
         baseTone,
-        this.signalFilter
+        this.signalFilter,
+        config.audioBuffer || null
       );
     }
   }
@@ -130,8 +137,9 @@ export class RadioTuner {
     // Update audio based on proximity
     const t = this.ctx.currentTime;
 
-    // Static fades as you get closer
-    this.noiseGain.gain.setTargetAtTime(0.5 * (1 - this.proximity * 0.9), t, 0.05);
+    // Static fades as you get closer (baseNoiseLevel is set by main.js for each phase)
+    const baseNoise = this._baseNoiseLevel || 0.3;
+    this.noiseGain.gain.setTargetAtTime(baseNoise * (1 - this.proximity * 0.9), t, 0.05);
 
     // Signal gets louder
     this.signalGain.gain.setTargetAtTime(this.proximity * 0.6, t, 0.05);

@@ -53,30 +53,73 @@ export class QuestionSystem {
     }
 
     this.voiceSupported = true;
+    this.continuousMode = false; // always-on listening mode
     this.recognition = new SpeechRecognition();
-    this.recognition.continuous = false;
+    this.recognition.continuous = true;  // keep listening
     this.recognition.interimResults = false;
     this.recognition.lang = 'en-US';
 
     this.recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      this.inputEl.value = transcript;
-      this._processQuestion(transcript);
-      this._stopVoice();
+      // Process the latest result (continuous mode may have multiple)
+      const lastResult = event.results[event.results.length - 1];
+      if (lastResult.isFinal) {
+        const transcript = lastResult[0].transcript.trim();
+        if (transcript) {
+          console.log('Voice heard:', transcript);
+          this._processQuestion(transcript);
+        }
+      }
     };
 
-    this.recognition.onerror = () => {
+    this.recognition.onerror = (e) => {
+      // Ignore 'no-speech' and 'aborted' — these are normal
+      if (e.error === 'no-speech' || e.error === 'aborted') return;
+      console.warn('Speech recognition error:', e.error);
       this._stopVoice();
     };
 
     this.recognition.onend = () => {
-      this._stopVoice();
+      // If in continuous mode, automatically restart
+      if (this.continuousMode && this.voiceListening) {
+        try {
+          setTimeout(() => {
+            if (this.continuousMode && this.voiceListening) {
+              this.recognition.start();
+            }
+          }, 300);
+        } catch {}
+      } else {
+        this._stopVoice();
+      }
     };
   }
 
+  /** Start always-on voice listening (called when gameplay begins) */
+  startContinuousListening() {
+    if (!this.voiceSupported) return;
+    this.continuousMode = true;
+    this.voiceListening = true;
+
+    try {
+      this.recognition.start();
+      console.log('Continuous voice listening started — speak to the ghost');
+    } catch {
+      // Already running, that's fine
+    }
+  }
+
+  /** Stop always-on voice listening (called when leaving gameplay) */
+  stopContinuousListening() {
+    this.continuousMode = false;
+    this.voiceListening = false;
+    try {
+      this.recognition.stop();
+    } catch {}
+  }
+
+  /** Start one-shot voice input (from button press) */
   startVoice() {
     if (!this.voiceSupported || this.voiceListening) return;
-    if (!this.inputOpen) this.openInput();
 
     this.voiceListening = true;
     this.inputEl.value = '';
@@ -92,6 +135,7 @@ export class QuestionSystem {
 
   _stopVoice() {
     this.voiceListening = false;
+    this.continuousMode = false;
     if (this.inputEl) {
       this.inputEl.placeholder = 'Ask the spirit...';
       this.inputEl.classList.remove('voice-active');
@@ -181,6 +225,7 @@ export class QuestionSystem {
       bandwidth: match.bandwidth || 3.0,
       voiceType: this.ghostVoiceType,
       voiceTone: this.ghostVoiceTone,
+      audioBuffer: this.ghostAudioBuffer || null,
     });
 
     eventBus.emit('question:asked', { question: match });
@@ -236,6 +281,7 @@ export class QuestionSystem {
     // Store the ghost's voice info for passing to the radio tuner
     this.ghostVoiceType = ghostConfig?.voiceType || 'default';
     this.ghostVoiceTone = ghostConfig?.voiceTone || 440;
+    this.ghostAudioBuffer = ghostConfig?.audioBuffer || null;
     this.activeQuestion = null;
     this.answerLocked = false;
     this.answerHoldTimer = 0;
